@@ -21,6 +21,8 @@ public class Upscaler {
     public static final String LOG_TAG = "WinlatorFSR";
     public static final String BASE_SCREEN_SIZE_KEY = "fsrBaseScreenSize";
 
+    private static String lastStatus = "Not running in this session yet.";
+
     public static final byte MODE_OFF = 0;
     public static final byte MODE_EASU = 1;
     public static final byte MODE_BILINEAR = 2;
@@ -50,6 +52,11 @@ public class Upscaler {
 
     public static int getSharpness(Container container) {
         return Math.max(0, Math.min(100, parseInt(container.getExtra("fsrSharpness", String.valueOf(DEFAULT_SHARPNESS)), DEFAULT_SHARPNESS)));
+    }
+
+    /** What the upscaler did in the running session, so the dialog can report it. */
+    public static String getLastStatus() {
+        return lastStatus;
     }
 
     /** The screen size the container is set to when the upscaler is off. */
@@ -100,7 +107,10 @@ public class Upscaler {
         if (container == null || screenInfo == null) return;
 
         final int mode = getMode(container);
-        if (mode == MODE_OFF) return;
+        if (mode == MODE_OFF) {
+            lastStatus = "Off for this container.";
+            return;
+        }
 
         final int sharpness = getSharpness(container);
         final boolean upscaling = panelWidth > 0 && screenInfo.width < panelWidth;
@@ -120,6 +130,7 @@ public class Upscaler {
 
         renderer.effectComposer.addEffect(new FSRSharpenEffect(sharpness));
 
+        lastStatus = path+"  "+screenInfo+" -> "+panelWidth+" wide, sharpness "+sharpness;
         Log.d(LOG_TAG, "FSR 1 active: "+path+", screen "+screenInfo+" -> panel width "+panelWidth+", sharpness "+sharpness);
     }
 }
