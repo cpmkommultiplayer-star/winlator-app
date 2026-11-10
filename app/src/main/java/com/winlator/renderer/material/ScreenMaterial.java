@@ -5,6 +5,7 @@ public class ScreenMaterial extends ShaderMaterial {
 
     public static class Uniforms {
         public final Uniform resolution = new Uniform("resolution");
+        public final Uniform inputSize = new Uniform("inputSize");
         public final Uniform screenTexture = new Uniform("screenTexture");
         public final Uniform flipY = new Uniform("flipY");
     }

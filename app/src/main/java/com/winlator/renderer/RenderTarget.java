@@ -34,4 +34,18 @@ public class RenderTarget extends Texture {
     public int getFramebuffer() {
         return framebuffer;
     }
+
+    public void destroy() {
+        if (framebuffer != 0) {
+            int[] framebuffers = {framebuffer};
+            GLES20.glDeleteFramebuffers(1, framebuffers, 0);
+            framebuffer = 0;
+        }
+
+        if (textureId != 0) {
+            int[] textureIds = {textureId};
+            GLES20.glDeleteTextures(1, textureIds, 0);
+            textureId = 0;
+        }
+    }
 }
