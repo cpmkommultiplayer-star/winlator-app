@@ -6,6 +6,8 @@ import android.opengl.GLSurfaceView;
 import android.view.ViewGroup;
 import android.widget.FrameLayout;
 
+import com.winlator.XServerDisplayActivity;
+import com.winlator.core.Upscaler;
 import com.winlator.renderer.GLRenderer;
 import com.winlator.xserver.XServer;
 
@@ -22,6 +24,10 @@ public class XServerView extends GLSurfaceView {
         renderer = new GLRenderer(this, xServer);
         setRenderer(renderer);
         setRenderMode(RENDERMODE_WHEN_DIRTY);
+
+        if (context instanceof XServerDisplayActivity) {
+            Upscaler.apply(renderer, ((XServerDisplayActivity)context).getContainer());
+        }
     }
 
     public GLRenderer getRenderer() {

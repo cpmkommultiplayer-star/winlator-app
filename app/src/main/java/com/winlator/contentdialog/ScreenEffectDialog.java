@@ -60,6 +60,8 @@ public class ScreenEffectDialog extends ContentDialog {
         cbEnableFXAA.setChecked(fxaaEffect != null);
         cbEnableCRTShader.setChecked(crtEffect != null);
 
+        findViewById(R.id.BTUpscaler).setOnClickListener((v) -> (new FSRSettingsDialog(activity)).show());
+
         sProfile.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
             @Override
             public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
