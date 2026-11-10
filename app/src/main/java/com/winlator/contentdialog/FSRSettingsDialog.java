@@ -67,7 +67,8 @@ public class FSRSettingsDialog extends ContentDialog {
 
         String sizes = mode == Upscaler.MODE_OFF ? "Screen size: "+base : "Screen size: "+base+" -> "+target;
         tvInfo.setText(sizes+"\n\nThe game renders at the smaller size and the upscaler brings it back to the panel, which is where the speed comes from. "
-            +"This changes the container's screen size; switching Off restores "+base+". A restart is required for changes to take effect.");
+            +"This changes the container's screen size; switching Off restores "+base+". A restart is required for changes to take effect."
+            +"\n\nThis session: "+Upscaler.getLastStatus());
     }
 
     private static int indexOfScale(int scale) {
