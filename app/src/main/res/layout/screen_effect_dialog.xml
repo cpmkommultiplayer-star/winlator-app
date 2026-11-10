@@ -118,6 +118,13 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="@string/enable_crt_shader" />
+
+            <Button
+                android:id="@+id/BTUpscaler"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:text="Upscaler..." />
         </LinearLayout>
     </LinearLayout>
 </LinearLayout>
