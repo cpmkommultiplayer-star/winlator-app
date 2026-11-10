@@ -1,5 +1,7 @@
 package com.winlator.contentdialog;
 
+import android.view.View;
+import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.Spinner;
 import android.widget.TextView;
@@ -35,8 +37,19 @@ public class FSRSettingsDialog extends ContentDialog {
         sFSRScale.setSelection(indexOfScale(Upscaler.getScale(container)));
         sbSharpness.setValue(Upscaler.getSharpness(container));
 
-        tvInfo.setText("The upscaler resizes the finished frame on its way to the panel. It does not change the resolution the game renders at: "
-            +"lower the container Screen Size for that, then upscale back with FSR. A restart is required for changes to take effect.");
+        AdapterView.OnItemSelectedListener listener = new AdapterView.OnItemSelectedListener() {
+            @Override
+            public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
+                updateInfo(container, sFSRMode, sFSRScale, tvInfo);
+            }
+
+            @Override
+            public void onNothingSelected(AdapterView<?> parent) {}
+        };
+
+        sFSRMode.setOnItemSelectedListener(listener);
+        sFSRScale.setOnItemSelectedListener(listener);
+        updateInfo(container, sFSRMode, sFSRScale, tvInfo);
 
         setOnConfirmCallback(() -> {
             int mode = sFSRMode.getSelectedItemPosition();
@@ -44,6 +57,17 @@ public class FSRSettingsDialog extends ContentDialog {
             int sharpness = (int)sbSharpness.getValue();
             Upscaler.save(container, mode, scale, sharpness);
         });
+    }
+
+    private static void updateInfo(Container container, Spinner sMode, Spinner sScale, TextView tvInfo) {
+        final String base = Upscaler.getBaseScreenSize(container);
+        final int mode = sMode.getSelectedItemPosition();
+        final int scale = Upscaler.SCALES[Math.max(0, sScale.getSelectedItemPosition())];
+        final String target = mode == Upscaler.MODE_OFF ? base : Upscaler.scaleScreenSize(base, scale);
+
+        String sizes = mode == Upscaler.MODE_OFF ? "Screen size: "+base : "Screen size: "+base+" -> "+target;
+        tvInfo.setText(sizes+"\n\nThe game renders at the smaller size and the upscaler brings it back to the panel, which is where the speed comes from. "
+            +"This changes the container's screen size; switching Off restores "+base+". A restart is required for changes to take effect.");
     }
 
     private static int indexOfScale(int scale) {

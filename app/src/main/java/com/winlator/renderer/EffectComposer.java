@@ -19,6 +19,9 @@ public class EffectComposer {
     private int bufferWidth = 0;
     private int bufferHeight = 0;
     private float renderScale = 1.0f;
+    private int sourceWidth = 0;
+    private int sourceHeight = 0;
+    private float sceneScale = 1.0f;
     private final ArrayList<Effect> effects = new ArrayList<>();
 
     public EffectComposer(GLRenderer renderer) {
@@ -65,6 +68,32 @@ public class EffectComposer {
         return renderScale;
     }
 
+    /**
+     * Draws the scene at exactly this size instead of a fraction of the surface, so a
+     * smaller X screen is sampled one to one and the upscaler has the real picture to
+     * work from rather than a frame that was already stretched to the surface.
+     * Ignored when the size is not smaller than the surface.
+     */
+    public synchronized void setSourceSize(int width, int height) {
+        int w = Math.max(1, width);
+        int h = Math.max(1, height);
+        if (sourceWidth == w && sourceHeight == h) return;
+        sourceWidth = w;
+        sourceHeight = h;
+        sceneWidth = 0;
+        sceneHeight = 0;
+        renderer.viewportNeedsUpdate = true;
+        renderer.xServerView.requestRender();
+    }
+
+    public synchronized int getSourceWidth() {
+        return sourceWidth;
+    }
+
+    public synchronized int getSourceHeight() {
+        return sourceHeight;
+    }
+
     private void swapBuffers() {
         RenderTarget tmp = writeBuffer;
         writeBuffer = readBuffer;
@@ -89,6 +118,13 @@ public class EffectComposer {
     private void initBuffers() {
         int sw = Math.max(1, Math.round(renderer.surfaceWidth * renderScale));
         int sh = Math.max(1, Math.round(renderer.surfaceHeight * renderScale));
+
+        if (sourceWidth > 0 && sourceHeight > 0 && sourceWidth < renderer.surfaceWidth && sourceHeight < renderer.surfaceHeight) {
+            sw = sourceWidth;
+            sh = sourceHeight;
+        }
+
+        sceneScale = sw / (float)renderer.surfaceWidth;
 
         if (sceneBuffer == null || sceneWidth != sw || sceneHeight != sh) {
             if (sceneBuffer != null) sceneBuffer.destroy();
@@ -123,20 +159,20 @@ public class EffectComposer {
 
         // The scene is drawn into a buffer of its own size, so the viewport GLRenderer
         // computes from the surface has to be expressed in that buffer's pixels.
-        if (renderScale != 1.0f) {
+        if (sceneScale != 1.0f) {
             renderer.surfaceWidth = (short)sceneWidth;
             renderer.surfaceHeight = (short)sceneHeight;
-            viewTransformation.viewOffsetX = Math.round(viewOffsetX * renderScale);
-            viewTransformation.viewOffsetY = Math.round(viewOffsetY * renderScale);
-            viewTransformation.viewWidth = Math.round(viewWidth * renderScale);
-            viewTransformation.viewHeight = Math.round(viewHeight * renderScale);
+            viewTransformation.viewOffsetX = Math.round(viewOffsetX * sceneScale);
+            viewTransformation.viewOffsetY = Math.round(viewOffsetY * sceneScale);
+            viewTransformation.viewWidth = Math.round(viewWidth * sceneScale);
+            viewTransformation.viewHeight = Math.round(viewHeight * sceneScale);
         }
 
         renderer.viewportNeedsUpdate = true;
         GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, sceneBuffer.getFramebuffer());
         renderer.drawFrame();
 
-        if (renderScale != 1.0f) {
+        if (sceneScale != 1.0f) {
             renderer.surfaceWidth = surfaceWidth;
             renderer.surfaceHeight = surfaceHeight;
             viewTransformation.viewOffsetX = viewOffsetX;
