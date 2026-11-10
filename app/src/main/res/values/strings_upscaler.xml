@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="upscaler_profile">Profile</string>
+    <string name="upscaler_profile_name">Profile name</string>
+    <string name="upscaler_profile_saved">Profile saved</string>
+    <string name="upscaler_no_profiles">No saved profiles</string>
+    <string name="upscaler_apply">Apply</string>
+    <string name="upscaler_save">Save</string>
+</resources>
