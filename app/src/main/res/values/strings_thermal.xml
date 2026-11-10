@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="thermal_manager">Thermal Manager</string>
+    <string name="thermal_close">Close</string>
+    <string name="thermal_now_format">%1$d ºC · %2$s</string>
+    <string name="thermal_battery_format">Battery: %1$d ºC</string>
+    <string name="thermal_battery_unknown">Battery: n/a</string>
+    <string name="thermal_no_sensors">This device exposes no readable thermal sensors.</string>
+    <string name="thermal_level_cool">Cool</string>
+    <string name="thermal_level_warm">Warm</string>
+    <string name="thermal_level_hot">Hot</string>
+    <string name="thermal_level_critical">Critical</string>
+    <string name="thermal_protection">Warn during a session, and close it at the critical temperature</string>
+    <string name="thermal_warn_threshold">Warn at</string>
+    <string name="thermal_critical_threshold">Critical at</string>
+    <string name="thermal_celsius_format">%1$d ºC</string>
+    <string name="thermal_hot_warning">Device is getting hot (%1$d ºC). Lowering settings or closing the game is advisable.</string>
+    <string name="thermal_critical_close">Critical temperature (%1$d ºC). Closing the session to protect the device.</string>
+</resources>
