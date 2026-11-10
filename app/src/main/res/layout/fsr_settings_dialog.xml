@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:orientation="vertical">
+
+    <LinearLayout
+        android:layout_width="520dp"
+        android:layout_height="wrap_content"
+        android:orientation="vertical">
+
+        <LinearLayout style="@style/FieldSet">
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Mode" />
+
+            <Spinner
+                style="@style/ComboBox"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:id="@+id/SFSRMode" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Render scale" />
+
+            <Spinner
+                style="@style/ComboBox"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:id="@+id/SFSRScale" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Sharpness" />
+
+            <com.winlator.widget.SeekBar
+                android:id="@+id/SBFSRSharpness"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                app:minValue="0"
+                app:maxValue="100" />
+
+            <TextView
+                android:id="@+id/TVFSRInfo"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:textSize="12sp" />
+        </LinearLayout>
+    </LinearLayout>
+</LinearLayout>
