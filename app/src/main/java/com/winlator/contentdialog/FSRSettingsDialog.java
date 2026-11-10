@@ -69,6 +69,7 @@ public class FSRSettingsDialog extends ContentDialog {
 
         ((Button)findViewById(R.id.BTApplyProfile)).setOnClickListener((v) -> applySelectedProfile());
         ((Button)findViewById(R.id.BTSaveProfile)).setOnClickListener((v) -> promptProfileName());
+        ((Button)findViewById(R.id.BTProfileMenu)).setOnClickListener((v) -> showProfileMenu());
 
         refreshProfileSpinner(-1);
         updateInfo();
@@ -116,6 +117,36 @@ public class FSRSettingsDialog extends ContentDialog {
             refreshProfileSpinner(indexOfProfile(name));
             AppUtils.showToast(activity, R.string.upscaler_profile_saved);
         });
+    }
+
+    private void showProfileMenu() {
+        final int index = sProfile.getSelectedItemPosition();
+        if (index < 0 || index >= profiles.size()) return;
+
+        final String[] entries = {activity.getString(R.string.upscaler_rename), activity.getString(R.string.upscaler_delete)};
+        ContentDialog.showSelectionList(activity, R.string.upscaler_profile, entries, false, (selection) -> {
+            if (selection.isEmpty()) return;
+            if (selection.get(0) == 0) renameProfile(index);
+            else deleteProfile(index);
+        });
+    }
+
+    private void renameProfile(int index) {
+        final GameProfile profile = profiles.get(index);
+
+        ContentDialog.prompt(activity, R.string.upscaler_profile_name, profile.name, (name) -> {
+            if (name.equalsIgnoreCase(profile.name)) return;
+            GameProfile.remove(activity, profiles, index);
+            GameProfile.save(activity, profiles, new GameProfile(name, profile.mode, profile.scale, profile.sharpness));
+            refreshProfileSpinner(indexOfProfile(name));
+            AppUtils.showToast(activity, R.string.upscaler_profile_renamed);
+        });
+    }
+
+    private void deleteProfile(int index) {
+        GameProfile.remove(activity, profiles, index);
+        refreshProfileSpinner(-1);
+        AppUtils.showToast(activity, R.string.upscaler_profile_removed);
     }
 
     private int indexOfProfile(String name) {
