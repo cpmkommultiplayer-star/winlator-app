@@ -1,6 +1,7 @@
 package com.winlator.renderer;
 
 import android.opengl.GLES20;
+import android.util.Log;
 
 import com.winlator.renderer.effects.Effect;
 import com.winlator.renderer.material.ScreenMaterial;
@@ -23,6 +24,7 @@ public class EffectComposer {
     private int sourceHeight = 0;
     private float sceneScale = 1.0f;
     private final ArrayList<Effect> effects = new ArrayList<>();
+    private int reportedErrors = 0;
 
     public EffectComposer(GLRenderer renderer) {
         this.renderer = renderer;
@@ -195,6 +197,13 @@ public class EffectComposer {
             GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT);
 
             renderEffect(effect, inputTextureId, inputWidth, inputHeight);
+
+            int glError = GLES20.glGetError();
+            if (glError != 0 && reportedErrors < 8) {
+                Log.e("WinlatorShader", "GL error 0x"+Integer.toHexString(glError)+" in effect pass "+i+" ("+effect.getClass().getSimpleName()+")");
+                reportedErrors++;
+            }
+
             swapBuffers();
 
             inputTextureId = readBuffer.getTextureId();
