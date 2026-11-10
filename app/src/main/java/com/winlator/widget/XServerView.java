@@ -3,6 +3,7 @@ package com.winlator.widget;
 import android.annotation.SuppressLint;
 import android.content.Context;
 import android.opengl.GLSurfaceView;
+import android.util.DisplayMetrics;
 import android.view.ViewGroup;
 import android.widget.FrameLayout;
 
@@ -26,7 +27,9 @@ public class XServerView extends GLSurfaceView {
         setRenderMode(RENDERMODE_WHEN_DIRTY);
 
         if (context instanceof XServerDisplayActivity) {
-            Upscaler.apply(renderer, ((XServerDisplayActivity)context).getContainer());
+            DisplayMetrics displayMetrics = context.getResources().getDisplayMetrics();
+            int panelWidth = Math.max(displayMetrics.widthPixels, displayMetrics.heightPixels);
+            Upscaler.apply(renderer, ((XServerDisplayActivity)context).getContainer(), xServer.screenInfo, panelWidth);
         }
     }
 
