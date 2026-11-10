@@ -35,8 +35,8 @@ public class FSRSettingsDialog extends ContentDialog {
         sFSRScale.setSelection(indexOfScale(Upscaler.getScale(container)));
         sbSharpness.setValue(Upscaler.getSharpness(container));
 
-        tvInfo.setText("The session is rendered at the scaled resolution and the upscaler brings it back to the panel, "
-            +"so a restart is required for changes to take effect. Best results when the container screen size matches the device resolution.");
+        tvInfo.setText("The upscaler resizes the finished frame on its way to the panel. It does not change the resolution the game renders at: "
+            +"lower the container Screen Size for that, then upscale back with FSR. A restart is required for changes to take effect.");
 
         setOnConfirmCallback(() -> {
             int mode = sFSRMode.getSelectedItemPosition();
