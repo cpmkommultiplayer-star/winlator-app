@@ -2,6 +2,7 @@ package com.winlator.renderer.material;
 
 import android.graphics.Color;
 import android.opengl.GLES20;
+import android.util.Log;
 
 public abstract class ShaderMaterial {
     private static final float INV_255 = 1.0f / 255.0f;
@@ -50,6 +51,14 @@ public abstract class ShaderMaterial {
         GLES20.glAttachShader(programId, fragmentShaderId);
 
         GLES20.glLinkProgram(programId);
+
+        // A program that fails to link used to render nothing without saying why, which is
+        // indistinguishable from a broken effect. It is still returned so the caller behaves
+        // as before, but the reason is now in the log.
+        GLES20.glGetProgramiv(programId, GLES20.GL_LINK_STATUS, compiled, 0);
+        if (compiled[0] == 0) {
+            Log.e("WinlatorShader", "Program failed to link: \n"+GLES20.glGetProgramInfoLog(programId));
+        }
 
         GLES20.glDeleteShader(vertexShaderId);
         GLES20.glDeleteShader(fragmentShaderId);
