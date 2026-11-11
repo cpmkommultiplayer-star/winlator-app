@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+                android:id="@+id/LFindBar"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_gravity="top"
+                android:layout_margin="6dp"
+                android:background="@drawable/px_panel"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:padding="2dp"
+                android:visibility="gone">
+
+                <EditText
+                    android:id="@+id/ETFind"
+                    android:layout_width="0dp"
+                    android:layout_height="36dp"
+                    android:layout_weight="1"
+                    android:background="@drawable/px_field"
+                    android:gravity="center_vertical"
+                    android:hint="@string/browser_find_hint"
+                    android:imeOptions="actionSearch"
+                    android:inputType="text"
+                    android:maxLines="1"
+                    android:paddingEnd="8dp"
+                    android:paddingStart="8dp"
+                    android:singleLine="true"
+                    android:textColor="@color/px_text"
+                    android:textColorHint="@color/px_line"
+                    android:textSize="13sp" />
+
+                <TextView
+                    android:id="@+id/TVFindCount"
+                    android:layout_width="60dp"
+                    android:layout_height="36dp"
+                    android:gravity="center"
+                    android:textColor="@color/px_text_dim"
+                    android:textSize="11sp" />
+
+                <ImageButton
+                    android:id="@+id/BTFindPrev"
+                    android:layout_width="32dp"
+                    android:layout_height="36dp"
+                    android:background="@drawable/px_button"
+                    android:contentDescription="@string/browser_find_prev"
+                    android:padding="6dp"
+                    android:src="@drawable/px_chevron_up"
+                    android:tint="@color/px_text_dim" />
+
+                <ImageButton
+                    android:id="@+id/BTFindNext"
+                    android:layout_width="32dp"
+                    android:layout_height="36dp"
+                    android:background="@drawable/px_button"
+                    android:contentDescription="@string/browser_find_next"
+                    android:padding="6dp"
+                    android:src="@drawable/px_chevron_down"
+                    android:tint="@color/px_text_dim" />
+
+                <ImageButton
+                    android:id="@+id/BTFindClose"
+                    android:layout_width="32dp"
+                    android:layout_height="36dp"
+                    android:background="@drawable/px_button"
+                    android:contentDescription="@string/browser_close"
+                    android:padding="7dp"
+                    android:src="@drawable/px_close"
+                    android:tint="@color/px_hot" />
+            </LinearLayout>

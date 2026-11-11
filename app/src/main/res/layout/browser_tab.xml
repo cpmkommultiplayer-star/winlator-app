@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="wrap_content"
+    android:layout_height="32dp"
+    android:layout_marginEnd="2dp"
+    android:background="@drawable/px_tab"
+    android:gravity="center_vertical"
+    android:orientation="horizontal"
+    android:paddingStart="8dp">
+
+    <TextView
+        android:id="@+id/TVTabTitle"
+        android:layout_width="wrap_content"
+        android:layout_height="match_parent"
+        android:ellipsize="end"
+        android:fontFamily="monospace"
+        android:gravity="center_vertical"
+        android:maxWidth="150dp"
+        android:singleLine="true"
+        android:textColor="@color/px_text"
+        android:textSize="11sp" />
+
+    <ImageButton
+        android:id="@+id/BTTabClose"
+        android:layout_width="28dp"
+        android:layout_height="28dp"
+        android:background="@drawable/px_button"
+        android:contentDescription="@string/browser_close_tab"
+        android:padding="7dp"
+        android:src="@drawable/px_close"
+        android:tint="@color/px_text_dim" />
+</LinearLayout>
