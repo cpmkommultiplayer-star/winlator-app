@@ -76,10 +76,14 @@ assets/pulseaudio.tzst)
 Upscaling
 ---------
 
-The FSR 1 upscaling pass in this app is an independent implementation written
-for this project from AMD's published algorithm description. AMD's FidelityFX
-Super Resolution reference implementation is MIT licensed and no code from it
-is copied here.
+The FSR 1 pass in this app is a port of AMD's FidelityFX Super Resolution 1
+reference implementation (ffx_fsr1.h / ffx_a.h, v1.20210629), which is MIT
+licensed, Copyright (c) 2021 Advanced Micro Devices, Inc. AMD's copyright and
+permission notice is retained at the top of the ported source files
+(app/src/main/java/com/winlator/renderer/effects/FSREffect.java and
+FSRSharpenEffect.java). The GLSL departs from the reference only where GLES 3.0
+lacks textureGather; each difference is described in those file headers.
+Licence text: https://github.com/GPUOpen-Effects/FidelityFX-FSR/blob/master/license.txt
 
 
 Not included
