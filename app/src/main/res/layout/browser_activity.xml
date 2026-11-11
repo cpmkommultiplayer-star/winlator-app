@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="@color/lp_night">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:background="@drawable/lowpoly_panel"
+        android:paddingStart="4dp"
+        android:paddingEnd="6dp"
+        android:paddingTop="4dp"
+        android:paddingBottom="4dp">
+
+        <ImageButton
+            android:id="@+id/BTBrowserBack"
+            android:layout_width="42dp"
+            android:layout_height="42dp"
+            android:background="@android:color/transparent"
+            android:contentDescription="@string/browser_back"
+            android:src="@drawable/browser_back"
+            android:tint="@color/lp_sky_100" />
+
+        <ImageButton
+            android:id="@+id/BTBrowserForward"
+            android:layout_width="42dp"
+            android:layout_height="42dp"
+            android:background="@android:color/transparent"
+            android:contentDescription="@string/browser_forward"
+            android:src="@drawable/browser_forward"
+            android:tint="@color/lp_sky_100" />
+
+        <ImageButton
+            android:id="@+id/BTBrowserReload"
+            android:layout_width="42dp"
+            android:layout_height="42dp"
+            android:background="@android:color/transparent"
+            android:contentDescription="@string/browser_reload"
+            android:src="@drawable/browser_reload"
+            android:tint="@color/lp_sky_300" />
+
+        <EditText
+            android:id="@+id/ETBrowserAddress"
+            style="@style/EditText"
+            android:layout_width="0dp"
+            android:layout_height="42dp"
+            android:layout_weight="1"
+            android:paddingStart="12dp"
+            android:paddingEnd="12dp"
+            android:gravity="center_vertical"
+            android:imeOptions="actionGo"
+            android:inputType="textUri"
+            android:maxLines="1"
+            android:hint="@string/browser_address_hint"
+            android:textColorHint="@color/lp_sky_700" />
+    </LinearLayout>
+
+    <ProgressBar
+        android:id="@+id/PBrowserLoad"
+        style="?android:attr/progressBarStyleHorizontal"
+        android:layout_width="match_parent"
+        android:layout_height="3dp"
+        android:max="100"
+        android:progress="0"
+        android:progressTint="@color/lp_pink_500"
+        android:visibility="gone" />
+
+    <org.mozilla.geckoview.GeckoView
+        android:id="@+id/GVContent"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1" />
+</LinearLayout>

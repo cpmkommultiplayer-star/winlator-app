@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="browser">Browser</string>
+    <string name="browser_back">Back</string>
+    <string name="browser_forward">Forward</string>
+    <string name="browser_reload">Reload</string>
+    <string name="browser_address_hint">Search or enter address</string>
+    <string name="browser_load_error">This page could not be loaded.</string>
+    <string name="browser_crashed">The page engine stopped and had to restart.</string>
+</resources>
