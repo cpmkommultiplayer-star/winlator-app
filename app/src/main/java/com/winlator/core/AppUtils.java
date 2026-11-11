@@ -44,7 +44,9 @@ import java.util.TimerTask;
 
 public abstract class AppUtils {
     public static final String DIRECTORY_DOWNLOADS = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS).getPath();
-    public static final String INTERNAL_STORAGE = "/data/data/com.winlator/storage";
+    // Keep in sync with applicationId in app/build.gradle: this is the installed package's own
+    // data dir, not upstream's name. WineUtils creates it on demand and maps it to E:.
+    public static final String INTERNAL_STORAGE = "/data/data/com.cpmkom.winlator/storage";
     private static WeakReference<Toast> globalToastReference = null;
 
     public static class RestartApplicationOptions {
@@ -386,3 +388,4 @@ public abstract class AppUtils {
         }
     }
 }
+
