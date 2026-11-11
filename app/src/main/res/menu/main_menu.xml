@@ -7,6 +7,7 @@
         <item android:icon="@drawable/icon_input_controls" android:id="@+id/menu_item_input_controls" android:title="@string/input_controls" />
         <item android:icon="@drawable/icon_popup_menu_info" android:id="@+id/menu_item_device_info" android:title="@string/device_info" />
         <item android:icon="@drawable/icon_temperature" android:id="@+id/menu_item_thermal" android:title="@string/thermal_manager" />
+        <item android:icon="@drawable/icon_browser" android:id="@+id/menu_item_browser" android:title="@string/browser" />
         <item android:icon="@drawable/icon_settings" android:id="@+id/menu_item_settings" android:title="@string/settings" />
         <item android:icon="@drawable/icon_about" android:id="@+id/menu_item_about" android:title="@string/about" />
     </group>

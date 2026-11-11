@@ -17,3 +17,13 @@
 #}
 
 -dontobfuscate
+
+# GeckoView loads its own classes reflectively and from native code, so nothing in it may be
+# renamed or removed.
+-keep class org.mozilla.geckoview.** { *; }
+-dontwarn org.mozilla.geckoview.**
+
+# GeckoView pulls in snakeyaml for add-on manifests. Its bean introspection path uses java.beans,
+# which does not exist on Android and is never reached there.
+-dontwarn java.beans.**
+-dontwarn org.yaml.snakeyaml.**
