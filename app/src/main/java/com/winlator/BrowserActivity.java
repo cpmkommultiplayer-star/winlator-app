@@ -47,6 +47,10 @@ public class BrowserActivity extends AppCompatActivity {
     private static final String PREF_HOME = "browser_home_url";
     private static final String PREF_LAST = "browser_last_url";
     private static final String PREF_DESKTOP = "browser_desktop_mode";
+    // Desktop layout by default: this browser exists to reach sites that only offer a usable
+    // interface to a desktop viewport (web IDEs, cloud desktops, online MATLAB). Long press the
+    // address bar to fall back to the mobile layout, remembered across launches.
+    private static final boolean DEFAULT_DESKTOP = true;
 
     private SharedPreferences preferences;
     private GeckoSession session;
@@ -110,14 +114,14 @@ public class BrowserActivity extends AppCompatActivity {
         // Long press the address bar to swap between mobile and desktop sites. A web app
         // like MATLAB Online lays itself out for a desktop viewport, a phone-sized site does not.
         ETBrowserAddress.setOnLongClickListener(view -> {
-            boolean desktop = !preferences.getBoolean(PREF_DESKTOP, false);
+            boolean desktop = !preferences.getBoolean(PREF_DESKTOP, DEFAULT_DESKTOP);
             preferences.edit().putBoolean(PREF_DESKTOP, desktop).apply();
             AppUtils.showToast(this, getString(desktop ? R.string.browser_desktop_on : R.string.browser_desktop_off));
             recreate();
             return true;
         });
 
-        boolean desktopMode = preferences.getBoolean(PREF_DESKTOP, false);
+        boolean desktopMode = preferences.getBoolean(PREF_DESKTOP, DEFAULT_DESKTOP);
         GeckoSessionSettings settings = new GeckoSessionSettings.Builder()
             .viewportMode(desktopMode ? GeckoSessionSettings.VIEWPORT_MODE_DESKTOP
                                       : GeckoSessionSettings.VIEWPORT_MODE_MOBILE)
