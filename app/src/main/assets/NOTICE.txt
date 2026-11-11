@@ -44,7 +44,7 @@ libadrenotools, including linkernsbypass
     BSD 2-Clause. Licence text: app/src/main/cpp/libadrenotools/LICENSE
 
 FluidSynth (MIDI handling)
-    GNU General Public License 2.1.
+    GNU Lesser General Public License 2.1.
     Licence text: app/src/main/cpp/midihandler/fluidsynth/LICENSE
 
 virglrenderer
