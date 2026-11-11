@@ -1,18 +1,18 @@
 package com.winlator;
 
-import android.content.ActivityNotFoundException;
-import android.content.Context;
-import android.content.Intent;
 import android.content.SharedPreferences;
-import android.net.Uri;
 import android.os.Bundle;
+import android.text.format.Formatter;
 import android.view.KeyEvent;
+import android.view.LayoutInflater;
 import android.view.View;
 import android.view.inputmethod.EditorInfo;
 import android.view.inputmethod.InputMethodManager;
 import android.widget.EditText;
 import android.widget.ImageButton;
+import android.widget.LinearLayout;
 import android.widget.ProgressBar;
+import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -21,51 +21,42 @@ import androidx.preference.PreferenceManager;
 
 import com.winlator.core.AppUtils;
 
-import org.mozilla.geckoview.AllowOrDeny;
-import org.mozilla.geckoview.GeckoResult;
-import org.mozilla.geckoview.GeckoRuntime;
-import org.mozilla.geckoview.GeckoSession;
-import org.mozilla.geckoview.GeckoSessionSettings;
-import org.mozilla.geckoview.GeckoView;
-import org.mozilla.geckoview.WebRequestError;
 import org.mozilla.geckoview.WebResponse;
 
+import java.io.File;
+import java.text.SimpleDateFormat;
+import java.util.Date;
 import java.util.List;
 import java.util.Locale;
 
 /**
- * A small browser built on Mozilla's published GeckoView artifact.
+ * The browser screen.
  *
- * Gecko is embedded as shipped; nothing here patches or forks it. The activity is deliberately
- * narrow: address bar, back/forward/reload, history across the system back button, and the page
- * filling the rest of the screen. Site permissions (geolocation, camera, microphone, notifications)
- * are denied rather than silently granted, because there is no permission UI to consent with.
+ * Chrome is a tab strip, an address bar, find-in-page, a downloads list and a settings panel over
+ * Mozilla's published GeckoView; the engine itself is untouched. Downloads land in the public
+ * Download folder because the container maps it to D:, so an installer fetched here can be run
+ * inside Wine without copying it anywhere.
  */
-public class BrowserActivity extends AppCompatActivity {
-    private static final String HOME_URL = "https://duckduckgo.com/";
-    private static final String SEARCH_URL = "https://duckduckgo.com/?q=";
-    private static final String PREF_HOME = "browser_home_url";
-    private static final String PREF_LAST = "browser_last_url";
-    private static final String PREF_DESKTOP = "browser_desktop_mode";
-    // Desktop layout by default: this browser exists to reach sites that only offer a usable
-    // interface to a desktop viewport (web IDEs, cloud desktops, online MATLAB). Long press the
-    // address bar to fall back to the mobile layout, remembered across launches.
-    private static final boolean DEFAULT_DESKTOP = true;
-
+public class BrowserActivity extends AppCompatActivity implements BrowserTabs.Listener, BrowserMenu.Callback {
     private SharedPreferences preferences;
-    private GeckoSession session;
+    private BrowserTabs tabs;
     private BrowserPrompts prompts;
+    private BrowserMenu menu;
+    private BrowserFind find;
 
-    private GeckoView GVContent;
     private EditText ETBrowserAddress;
     private ProgressBar PBrowserLoad;
     private ImageButton BTBrowserBack;
     private ImageButton BTBrowserForward;
-    private ImageButton BTBrowserReload;
+    private LinearLayout LTabStrip;
+    private LinearLayout LDownloadsList;
+    private TextView TVTabsCount;
+    private TextView TVDownloadsEmpty;
+    private View LMenuPanel;
+    private View LDownloadsPanel;
 
-    private boolean canGoBack = false;
-    private boolean canGoForward = false;
-    private String currentUrl = HOME_URL;
+    private final SimpleDateFormat stamp = new SimpleDateFormat("d MMM HH:mm", Locale.getDefault());
+    private String currentUrl = BrowserTabs.HOME_URL;
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
@@ -75,238 +66,240 @@ public class BrowserActivity extends AppCompatActivity {
 
         preferences = PreferenceManager.getDefaultSharedPreferences(this);
 
-        GVContent = findViewById(R.id.GVContent);
         ETBrowserAddress = findViewById(R.id.ETBrowserAddress);
         PBrowserLoad = findViewById(R.id.PBrowserLoad);
         BTBrowserBack = findViewById(R.id.BTBrowserBack);
         BTBrowserForward = findViewById(R.id.BTBrowserForward);
-        BTBrowserReload = findViewById(R.id.BTBrowserReload);
+        LTabStrip = findViewById(R.id.LTabStrip);
+        LDownloadsList = findViewById(R.id.LDownloadsList);
+        TVTabsCount = findViewById(R.id.TVTabsCount);
+        TVDownloadsEmpty = findViewById(R.id.TVDownloadsEmpty);
+        LMenuPanel = findViewById(R.id.LMenuPanel);
+        LDownloadsPanel = findViewById(R.id.LDownloadsPanel);
 
-        BTBrowserBack.setOnClickListener(view -> {
-            if (session != null) session.goBack();
-        });
+        prompts = new BrowserPrompts(this);
+        tabs = new BrowserTabs(this, findViewById(R.id.GVContent), prompts, this);
+        find = new BrowserFind(this, tabs, findViewById(R.id.LFindBar),
+            (EditText) findViewById(R.id.ETFind),
+            (TextView) findViewById(R.id.TVFindCount),
+            (ImageButton) findViewById(R.id.BTFindPrev),
+            (ImageButton) findViewById(R.id.BTFindNext),
+            (ImageButton) findViewById(R.id.BTFindClose));
+        menu = new BrowserMenu(this, LMenuPanel, preferences, this);
 
-        BTBrowserForward.setOnClickListener(view -> {
-            if (session != null) session.goForward();
+        BTBrowserBack.setOnClickListener(view -> tabs.back());
+        BTBrowserForward.setOnClickListener(view -> tabs.forward());
+        findViewById(R.id.BTBrowserReload).setOnClickListener(view -> {
+            tabs.reload();
+            hidePanels();
         });
-
-        BTBrowserReload.setOnClickListener(view -> {
-            if (session != null) session.reload();
+        findViewById(R.id.BTNewTab).setOnClickListener(view -> newTab());
+        findViewById(R.id.BTBTabs).setOnClickListener(view -> newTab());
+        findViewById(R.id.BTBHome).setOnClickListener(view -> {
+            hidePanels();
+            tabs.load(preferences.getString(BrowserTabs.PREF_HOME, BrowserTabs.HOME_URL));
         });
-
-        // Long press goes home, so the address bar can be small.
-        BTBrowserReload.setOnLongClickListener(view -> {
-            openUrl(preferences.getString(PREF_HOME, HOME_URL));
-            return true;
+        findViewById(R.id.BTBDownloads).setOnClickListener(view -> openDownloads());
+        findViewById(R.id.BTBFind).setOnClickListener(view -> openFind());
+        findViewById(R.id.BTBMenu).setOnClickListener(view -> {
+            if (menu.isOpen()) {
+                menu.hide();
+                return;
+            }
+            hidePanels();
+            menu.open();
+            LMenuPanel.setVisibility(View.VISIBLE);
         });
+        findViewById(R.id.BTDownloadsClose).setOnClickListener(view -> hidePanels());
 
         ETBrowserAddress.setOnEditorActionListener((view, actionId, event) -> {
-            boolean enter = event != null && event.getKeyCode() == KeyEvent.KEYCODE_ENTER && event.getAction() == KeyEvent.ACTION_DOWN;
+            boolean enter = event != null && event.getKeyCode() == KeyEvent.KEYCODE_ENTER
+                && event.getAction() == KeyEvent.ACTION_DOWN;
             if (actionId != EditorInfo.IME_ACTION_GO && actionId != EditorInfo.IME_ACTION_DONE && !enter) return false;
 
-            String url = normalise(ETBrowserAddress.getText().toString());
-            if (url != null) openUrl(url);
+            String url = BrowserTabs.normalise(ETBrowserAddress.getText().toString());
+            if (url != null) tabs.load(url);
             ETBrowserAddress.clearFocus();
             hideKeyboard();
             return true;
         });
 
-        // Long press the address bar to swap between mobile and desktop sites. A web app
-        // like MATLAB Online lays itself out for a desktop viewport, a phone-sized site does not.
-        ETBrowserAddress.setOnLongClickListener(view -> {
-            boolean desktop = !preferences.getBoolean(PREF_DESKTOP, DEFAULT_DESKTOP);
-            preferences.edit().putBoolean(PREF_DESKTOP, desktop).apply();
-            AppUtils.showToast(this, getString(desktop ? R.string.browser_desktop_on : R.string.browser_desktop_off));
-            recreate();
-            return true;
-        });
+        updateHistoryButtons(false, false);
 
-        boolean desktopMode = preferences.getBoolean(PREF_DESKTOP, DEFAULT_DESKTOP);
-        GeckoSessionSettings settings = new GeckoSessionSettings.Builder()
-            .viewportMode(desktopMode ? GeckoSessionSettings.VIEWPORT_MODE_DESKTOP
-                                      : GeckoSessionSettings.VIEWPORT_MODE_MOBILE)
-            .userAgentMode(desktopMode ? GeckoSessionSettings.USER_AGENT_MODE_DESKTOP
-                                       : GeckoSessionSettings.USER_AGENT_MODE_MOBILE)
-            .build();
-
-        session = new GeckoSession(settings);
-        prompts = new BrowserPrompts(this);
-        session.setPromptDelegate(prompts);
-        session.setNavigationDelegate(navigationDelegate);
-        session.setProgressDelegate(progressDelegate);
-        session.setContentDelegate(contentDelegate);
-        session.setPermissionDelegate(permissionDelegate);
-        session.open(GeckoRuntime.getDefault(this));
-        GVContent.setSession(session);
-
-        updateHistoryButtons();
-        String start = savedInstanceState == null ? preferences.getString(PREF_LAST, HOME_URL) : HOME_URL;
-        openUrl(start != null && !start.isEmpty() ? start : HOME_URL);
+        String start = savedInstanceState == null
+            ? preferences.getString(BrowserTabs.PREF_LAST, BrowserTabs.HOME_URL)
+            : BrowserTabs.HOME_URL;
+        tabs.open(start == null || start.isEmpty() ? BrowserTabs.HOME_URL : start,
+            preferences.getBoolean(BrowserTabs.PREF_PRIVATE, false));
     }
 
-    private final GeckoSession.NavigationDelegate navigationDelegate = new GeckoSession.NavigationDelegate() {
-        @Override
-        public void onLocationChange(@NonNull GeckoSession session, @Nullable String url,
-                                     @NonNull List<GeckoSession.PermissionDelegate.ContentPermission> perms,
-                                     @Nullable Boolean isTopLevel) {
-            if (url == null) return;
-            currentUrl = url;
-            // Do not fight the user while they are editing the address.
-            if (!ETBrowserAddress.isFocused()) ETBrowserAddress.setText(displayUrl(url));
-        }
+    // ------------------------------------------------------------ tab actions
 
-        @Override
-        public void onCanGoBack(@NonNull GeckoSession session, boolean value) {
-            canGoBack = value;
-            updateHistoryButtons();
-        }
+    private void newTab() {
+        hidePanels();
+        tabs.open(BrowserTabs.HOME_URL, preferences.getBoolean(BrowserTabs.PREF_PRIVATE, false));
+    }
 
-        @Override
-        public void onCanGoForward(@NonNull GeckoSession session, boolean value) {
-            canGoForward = value;
-            updateHistoryButtons();
-        }
+    private void openFind() {
+        hidePanels();
+        find.open();
+    }
 
-        @Override
-        public GeckoResult<AllowOrDeny> onLoadRequest(@NonNull GeckoSession session,
-                                                      @NonNull GeckoSession.NavigationDelegate.LoadRequest request) {
-            String uri = request.uri;
-            if (uri == null) return GeckoResult.deny();
+    private void openDownloads() {
+        hidePanels();
+        menu.hide();
+        LDownloadsPanel.setVisibility(View.VISIBLE);
+        renderDownloads();
+    }
 
-            String scheme = Uri.parse(uri).getScheme();
-            scheme = scheme == null ? "" : scheme.toLowerCase(Locale.ENGLISH);
+    private void hidePanels() {
+        LMenuPanel.setVisibility(View.GONE);
+        if (find != null) find.hide();
+        LDownloadsPanel.setVisibility(View.GONE);
+    }
 
-            // Anything that is not a web page goes to whatever app claims it. Links using schemes
-            // like intent: or market: must never be loaded in the engine itself.
-            if (scheme.equals("http") || scheme.equals("https") || scheme.equals("about") || scheme.equals("data")) {
-                return GeckoResult.allow();
-            }
+    // ------------------------------------------------------------ tab strip
 
-            if (scheme.equals("file")) return GeckoResult.deny();
+    private void renderTabStrip() {
+        LTabStrip.removeAllViews();
+        LayoutInflater inflater = getLayoutInflater();
 
-            try {
-                startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(uri)));
-            }
-            catch (ActivityNotFoundException ignored) {
-            }
-            catch (SecurityException ignored) {
-            }
+        for (int i = 0; i < tabs.count(); i++) {
+            BrowserTabs.Tab tab = tabs.tabAt(i);
+            if (tab == null) continue;
 
-            return GeckoResult.deny();
-        }
+            View chip = inflater.inflate(R.layout.browser_tab, LTabStrip, false);
+            TextView title = chip.findViewById(R.id.TVTabTitle);
 
-        @Override
-        public GeckoResult<String> onLoadError(@NonNull GeckoSession session, @Nullable String uri,
-                                               @NonNull WebRequestError error) {
-            runOnUiThread(() -> {
-                PBrowserLoad.setVisibility(View.GONE);
-                AppUtils.showToast(BrowserActivity.this, getString(R.string.browser_load_error));
+            String label = tab.getTitle();
+            if (label == null || label.isEmpty()) label = BrowserTabs.displayUrl(tab.getUrl());
+            if (tab.isPrivate()) label = getString(R.string.browser_tab_private) + " · " + label;
+            title.setText(label);
+
+            boolean selected = i == tabs.activeIndex();
+            chip.setBackgroundResource(selected ? R.drawable.px_tab_active : R.drawable.px_tab);
+            title.setTextColor(getColor(selected ? R.color.px_text : R.color.px_text_dim));
+
+            final int index = i;
+            chip.setOnClickListener(view -> {
+                hidePanels();
+                tabs.show(index);
             });
-            return null;
-        }
-    };
+            chip.findViewById(R.id.BTTabClose).setOnClickListener(view -> tabs.close(index));
 
-    private final GeckoSession.ProgressDelegate progressDelegate = new GeckoSession.ProgressDelegate() {
-        @Override
-        public void onPageStart(@NonNull GeckoSession session, @NonNull String url) {
-            PBrowserLoad.setVisibility(View.VISIBLE);
-            PBrowserLoad.setProgress(0);
+            LTabStrip.addView(chip);
         }
 
-        @Override
-        public void onPageStop(@NonNull GeckoSession session, boolean success) {
-            PBrowserLoad.setVisibility(View.GONE);
-        }
+        TVTabsCount.setText(String.valueOf(Math.max(1, tabs.count())));
+    }
 
-        @Override
-        public void onProgressChange(@NonNull GeckoSession session, int progress) {
-            PBrowserLoad.setVisibility(progress >= 100 ? View.GONE : View.VISIBLE);
-            PBrowserLoad.setProgress(progress);
-        }
-    };
+    // ----------------------------------------------------------- downloads
 
-    private final GeckoSession.ContentDelegate contentDelegate = new GeckoSession.ContentDelegate() {
-        @Override
-        public void onTitleChange(@NonNull GeckoSession session, @Nullable String title) {
-            setTitle(title != null && !title.trim().isEmpty() ? title : getString(R.string.browser));
-        }
+    private void renderDownloads() {
+        LDownloadsList.removeAllViews();
+        List<File> files = BrowserFiles.files();
+        TVDownloadsEmpty.setVisibility(files.isEmpty() ? View.VISIBLE : View.GONE);
 
-        @Override
-        public void onCrash(@NonNull GeckoSession session) {
-            runOnUiThread(() -> AppUtils.showToast(BrowserActivity.this, getString(R.string.browser_crashed)));
-        }
+        LayoutInflater inflater = getLayoutInflater();
+        for (File file : files) {
+            View row = inflater.inflate(R.layout.browser_download_row, LDownloadsList, false);
+            ((TextView) row.findViewById(R.id.TVDownloadName)).setText(file.getName());
 
-        @Override
-        public void onKill(@NonNull GeckoSession session) {
-            runOnUiThread(() -> AppUtils.showToast(BrowserActivity.this, getString(R.string.browser_crashed)));
-        }
+            String meta = Formatter.formatShortFileSize(this, file.length())
+                + "  ·  " + stamp.format(new Date(file.lastModified()));
+            ((TextView) row.findViewById(R.id.TVDownloadMeta)).setText(meta);
 
-        /**
-         * Gecko hands over anything it will not render itself, which is every download.
-         * Without this the tap is silently dropped, which is what used to happen.
-         */
-        @Override
-        public void onExternalResponse(@NonNull GeckoSession session, @NonNull WebResponse response) {
-            BrowserDownloads.handle(BrowserActivity.this, response);
+            row.setOnClickListener(view -> BrowserFiles.open(this, file));
+            LDownloadsList.addView(row);
         }
-    };
+    }
 
-    /**
-     * Every prompt is denied. Granting a permission silently would be indistinguishable from
-     * tracking the user, and this screen has no way to ask.
-     */
-    private final GeckoSession.PermissionDelegate permissionDelegate = new GeckoSession.PermissionDelegate() {
-        @Override
-        public GeckoResult<Integer> onContentPermissionRequest(@NonNull GeckoSession session,
-                                                               @NonNull GeckoSession.PermissionDelegate.ContentPermission permission) {
-            return GeckoResult.fromValue(GeckoSession.PermissionDelegate.ContentPermission.VALUE_DENY);
-        }
+    // ------------------------------------------------------------- listener
 
-        @Override
-        public void onAndroidPermissionsRequest(@NonNull GeckoSession session, @Nullable String[] permissions,
-                                                @NonNull GeckoSession.PermissionDelegate.Callback callback) {
-            callback.reject();
-        }
+    @Override
+    public void onTabsChanged() {
+        renderTabStrip();
+    }
 
-        @Override
-        public void onMediaPermissionRequest(@NonNull GeckoSession session, @NonNull String uri,
-                                             @Nullable GeckoSession.PermissionDelegate.MediaSource[] video,
-                                             @Nullable GeckoSession.PermissionDelegate.MediaSource[] audio,
-                                             @NonNull GeckoSession.PermissionDelegate.MediaCallback callback) {
-            callback.reject();
-        }
-    };
-
-    private void openUrl(@Nullable String url) {
-        if (url == null || url.isEmpty()) return;
+    @Override
+    public void onLocation(@NonNull BrowserTabs.Tab tab, @NonNull String url) {
         currentUrl = url;
-        ETBrowserAddress.setText(displayUrl(url));
-        if (session != null) session.loadUri(url);
+        // Never fight the user while they are typing in the bar.
+        if (!ETBrowserAddress.isFocused()) ETBrowserAddress.setText(BrowserTabs.displayUrl(url));
     }
 
-    /** Turns what was typed into a URL, or a search when it does not look like one. */
-    private static String normalise(@NonNull String input) {
-        String text = input.trim();
-        if (text.isEmpty()) return null;
-
-        String lower = text.toLowerCase(Locale.ENGLISH);
-        if (lower.startsWith("http://") || lower.startsWith("https://") ||
-            lower.startsWith("about:") || lower.startsWith("data:")) return text;
-
-        boolean looksLikeHost = text.contains(".") && !text.contains(" ") && !lower.startsWith("javascript:");
-        if (!looksLikeHost) return SEARCH_URL + Uri.encode(text);
-
-        return "https://" + text;
+    @Override
+    public void onTitle(@NonNull BrowserTabs.Tab tab, @Nullable String title) {
+        setTitle(title == null || title.isEmpty() ? getString(R.string.browser) : title);
     }
 
-    /** The address bar shows what was typed, without the scheme noise. */
-    private static String displayUrl(@NonNull String url) {
-        if (url.startsWith("https://")) return url.substring(8);
-        if (url.startsWith("http://")) return url.substring(7);
-        return url;
+    @Override
+    public void onHistory(boolean canGoBack, boolean canGoForward) {
+        updateHistoryButtons(canGoBack, canGoForward);
     }
 
-    private void updateHistoryButtons() {
+    @Override
+    public void onProgress(int progress, boolean loading) {
+        PBrowserLoad.setVisibility(loading ? View.VISIBLE : View.GONE);
+        PBrowserLoad.setProgress(progress);
+    }
+
+    @Override
+    public void onExternalResponse(@NonNull WebResponse response) {
+        BrowserDownloads.handle(this, response);
+        if (LDownloadsPanel.getVisibility() == View.VISIBLE) renderDownloads();
+    }
+
+    @Override
+    public void onLoadError() {
+        PBrowserLoad.setVisibility(View.GONE);
+        AppUtils.showToast(this, getString(R.string.browser_load_error));
+    }
+
+    @Override
+    public void onCrashed() {
+        AppUtils.showToast(this, getString(R.string.browser_crashed));
+    }
+
+    // --------------------------------------------------------------- menu
+
+    @Override
+    public void onDesktopChanged() {
+        // Viewport and user agent are fixed when a session is created, so the change takes
+        // effect on the next launch rather than silently doing nothing to this page.
+        AppUtils.showToast(this, getString(preferences.getBoolean(BrowserTabs.PREF_DESKTOP, BrowserTabs.DEFAULT_DESKTOP)
+            ? R.string.browser_desktop_on : R.string.browser_desktop_off));
+    }
+
+    @Override
+    public void onNewTab() {
+        newTab();
+    }
+
+    @Override
+    public void onFind() {
+        openFind();
+    }
+
+    @Override
+    public void onDownloads() {
+        openDownloads();
+    }
+
+    @Override
+    public void onHome() {
+        hidePanels();
+        tabs.load(preferences.getString(BrowserTabs.PREF_HOME, BrowserTabs.HOME_URL));
+    }
+
+    @Override
+    public void onCloseTab() {
+        tabs.close(tabs.activeIndex());
+    }
+
+    // ---------------------------------------------------------------- misc
+
+    private void updateHistoryButtons(boolean canGoBack, boolean canGoForward) {
         BTBrowserBack.setEnabled(canGoBack);
         BTBrowserBack.setAlpha(canGoBack ? 1.0f : 0.35f);
         BTBrowserForward.setEnabled(canGoForward);
@@ -314,45 +307,42 @@ public class BrowserActivity extends AppCompatActivity {
     }
 
     private void hideKeyboard() {
-        InputMethodManager manager = (InputMethodManager)getSystemService(Context.INPUT_METHOD_SERVICE);
+        InputMethodManager manager = (InputMethodManager) getSystemService(INPUT_METHOD_SERVICE);
         if (manager != null) manager.hideSoftInputFromWindow(ETBrowserAddress.getWindowToken(), 0);
     }
 
     @Override
     public void onBackPressed() {
-        if (session != null && canGoBack) {
-            session.goBack();
+        if (menu.isOpen() || LDownloadsPanel.getVisibility() == View.VISIBLE || find.isOpen()) {
+            hidePanels();
+            return;
+        }
+        if (tabs.canGoBack()) {
+            tabs.back();
             return;
         }
         super.onBackPressed();
     }
 
     @Override
-    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
-        if (prompts != null) prompts.onActivityResult(requestCode, resultCode, data);
-        super.onActivityResult(requestCode, resultCode, data);
-    }
-
-    @Override
     public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
         if (requestCode != BrowserDownloads.REQUEST_STORAGE) return;
-        boolean granted = grantResults.length > 0 && grantResults[0] == android.content.pm.PackageManager.PERMISSION_GRANTED;
+        boolean granted = grantResults.length > 0
+            && grantResults[0] == android.content.pm.PackageManager.PERMISSION_GRANTED;
         BrowserDownloads.onPermissionResult(this, granted);
     }
 
     @Override
     protected void onPause() {
         super.onPause();
-        if (preferences != null) preferences.edit().putString(PREF_LAST, currentUrl).apply();
+        if (preferences != null) preferences.edit().putString(BrowserTabs.PREF_LAST, currentUrl).apply();
     }
 
     @Override
     protected void onDestroy() {
         if (prompts != null) prompts.cancelPending();
-        if (GVContent != null) GVContent.releaseSession();
-        if (session != null) session.close();
-        session = null;
+        if (tabs != null) tabs.closeAll();
         super.onDestroy();
     }
 }
