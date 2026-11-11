@@ -25,8 +25,10 @@ import org.mozilla.geckoview.AllowOrDeny;
 import org.mozilla.geckoview.GeckoResult;
 import org.mozilla.geckoview.GeckoRuntime;
 import org.mozilla.geckoview.GeckoSession;
+import org.mozilla.geckoview.GeckoSessionSettings;
 import org.mozilla.geckoview.GeckoView;
 import org.mozilla.geckoview.WebRequestError;
+import org.mozilla.geckoview.WebResponse;
 
 import java.util.List;
 import java.util.Locale;
@@ -44,9 +46,11 @@ public class BrowserActivity extends AppCompatActivity {
     private static final String SEARCH_URL = "https://duckduckgo.com/?q=";
     private static final String PREF_HOME = "browser_home_url";
     private static final String PREF_LAST = "browser_last_url";
+    private static final String PREF_DESKTOP = "browser_desktop_mode";
 
     private SharedPreferences preferences;
     private GeckoSession session;
+    private BrowserPrompts prompts;
 
     private GeckoView GVContent;
     private EditText ETBrowserAddress;
@@ -103,7 +107,27 @@ public class BrowserActivity extends AppCompatActivity {
             return true;
         });
 
-        session = new GeckoSession();
+        // Long press the address bar to swap between mobile and desktop sites. A web app
+        // like MATLAB Online lays itself out for a desktop viewport, a phone-sized site does not.
+        ETBrowserAddress.setOnLongClickListener(view -> {
+            boolean desktop = !preferences.getBoolean(PREF_DESKTOP, false);
+            preferences.edit().putBoolean(PREF_DESKTOP, desktop).apply();
+            AppUtils.showToast(this, getString(desktop ? R.string.browser_desktop_on : R.string.browser_desktop_off));
+            recreate();
+            return true;
+        });
+
+        boolean desktopMode = preferences.getBoolean(PREF_DESKTOP, false);
+        GeckoSessionSettings settings = new GeckoSessionSettings.Builder()
+            .viewportMode(desktopMode ? GeckoSessionSettings.VIEWPORT_MODE_DESKTOP
+                                      : GeckoSessionSettings.VIEWPORT_MODE_MOBILE)
+            .userAgentMode(desktopMode ? GeckoSessionSettings.USER_AGENT_MODE_DESKTOP
+                                       : GeckoSessionSettings.USER_AGENT_MODE_MOBILE)
+            .build();
+
+        session = new GeckoSession(settings);
+        prompts = new BrowserPrompts(this);
+        session.setPromptDelegate(prompts);
         session.setNavigationDelegate(navigationDelegate);
         session.setProgressDelegate(progressDelegate);
         session.setContentDelegate(contentDelegate);
@@ -212,6 +236,15 @@ public class BrowserActivity extends AppCompatActivity {
         public void onKill(@NonNull GeckoSession session) {
             runOnUiThread(() -> AppUtils.showToast(BrowserActivity.this, getString(R.string.browser_crashed)));
         }
+
+        /**
+         * Gecko hands over anything it will not render itself, which is every download.
+         * Without this the tap is silently dropped, which is what used to happen.
+         */
+        @Override
+        public void onExternalResponse(@NonNull GeckoSession session, @NonNull WebResponse response) {
+            BrowserDownloads.handle(BrowserActivity.this, response);
+        }
     };
 
     /**
@@ -291,6 +324,20 @@ public class BrowserActivity extends AppCompatActivity {
     }
 
     @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        if (prompts != null) prompts.onActivityResult(requestCode, resultCode, data);
+        super.onActivityResult(requestCode, resultCode, data);
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode != BrowserDownloads.REQUEST_STORAGE) return;
+        boolean granted = grantResults.length > 0 && grantResults[0] == android.content.pm.PackageManager.PERMISSION_GRANTED;
+        BrowserDownloads.onPermissionResult(this, granted);
+    }
+
+    @Override
     protected void onPause() {
         super.onPause();
         if (preferences != null) preferences.edit().putString(PREF_LAST, currentUrl).apply();
@@ -298,6 +345,7 @@ public class BrowserActivity extends AppCompatActivity {
 
     @Override
     protected void onDestroy() {
+        if (prompts != null) prompts.cancelPending();
         if (GVContent != null) GVContent.releaseSession();
         if (session != null) session.close();
         session = null;
