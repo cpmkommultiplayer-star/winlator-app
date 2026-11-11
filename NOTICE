@@ -1,0 +1,105 @@
+Third-party software in this build
+==================================
+
+This app is a modified build of Winlator. Winlator's own code, and the changes
+made for this build, are distributed under the GNU Lesser General Public
+License version 2.1 (see LICENSE). Upstream project:
+https://github.com/brunodev85/winlator
+
+Nothing below has been patched or forked. Components are embedded as published
+by their authors, or used through their released artifacts.
+
+
+Embedded in the application package
+-----------------------------------
+
+GeckoView 137.0.20250414091429 (arm64-v8a)
+    Mozilla Public License 2.0
+    Used unmodified as published at https://maven.mozilla.org/maven2/
+    Source: https://github.com/mozilla/gecko-dev
+    No changes have been made to Gecko.
+
+AndroidX AppCompat 1.4.0, Preference 1.2.1, Lifecycle Process 2.5.1
+    Apache License 2.0
+
+Material Components for Android 1.4.0
+    Apache License 2.0
+
+Kotlin standard library 1.9.24 (dependency of GeckoView)
+    Apache License 2.0
+
+SnakeYAML 2.2 (dependency of GeckoView)
+    Apache License 2.0
+
+zstd-jni 1.5.2-3
+    BSD 2-Clause
+
+XZ for Java 1.7
+    Public Domain
+
+Apache Commons Compress 1.20
+    Apache License 2.0
+
+libadrenotools, including linkernsbypass
+    BSD 2-Clause. Licence text: app/src/main/cpp/libadrenotools/LICENSE
+
+FluidSynth (MIDI handling)
+    GNU Lesser General Public License 2.1.
+    Licence text: app/src/main/cpp/midihandler/fluidsynth/LICENSE
+
+virglrenderer
+    MIT (as published upstream: https://gitlab.freedesktop.org/virgl/virglrenderer)
+
+PulseAudio and the audio libraries bundled with it
+    libpulse, libpulscommon, libpulsecore, libpulseaudio, libsndfile,
+    libFLAC, libogg, libvorbis, libopus, libglib-2.0, libgobject-2.0,
+    libgio-2.0, libgmodule-2.0, libgthread-2.0, libpcre, libpcreposix, libltdl
+    These are built from upstream sources and arrive under their own upstream
+    licences (predominantly LGPL 2.1 and BSD). See the respective projects.
+
+Oboe
+    Apache License 2.0
+
+Box64 0.4.4 (assets/box64/box64-0.4.4.tzst)
+    MIT (https://github.com/ptitSeb/box64)
+
+cnc-ddraw 6.6 and d7vk 1.11 (assets/dxwrapper/)
+    As published upstream (https://github.com/FunkyFr3sh/cnc-ddraw,
+    https://github.com/WinterSnowfall/d7vk)
+
+Container image and PulseAudio image (assets/container_pattern.tzst,
+assets/pulseaudio.tzst)
+    Assembled from upstream distributions, including Wine, which is
+    LGPL 2.1 or later (https://www.winehq.org/).
+
+
+Upscaling
+---------
+
+The FSR 1 upscaling pass in this app is an independent implementation written
+for this project from AMD's published algorithm description. AMD's FidelityFX
+Super Resolution reference implementation is MIT licensed and no code from it
+is copied here.
+
+
+Not included
+------------
+
+DXVK, VKD3D and Mesa's graphics drivers are not redistributed in this
+repository. Where a build installs them, they come from their upstream
+projects and remain under their own licences:
+
+    DXVK      Zlib      https://github.com/doitsujin/dxvk
+    VKD3D     LGPL 2.1  https://gitlab.winehq.org/wine/vkd3d
+    Mesa      MIT       https://www.mesa3d.org/
+
+No Microsoft software, firmware, keys or activation data is included, and no
+hardware or platform identity is spoofed.
+
+
+Notes
+-----
+
+This file is a summary for attribution and is not a substitute for the full
+licence texts, which ship with each upstream project. Where this summary and an
+upstream licence disagree, the upstream licence governs that component.
