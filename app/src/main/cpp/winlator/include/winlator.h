@@ -11,7 +11,8 @@
 #define BITMASK_UNSET(bits, flag) bits &= ~flag
 #define GETEXP(x) (31 - __builtin_clz(x))
 
-#define APP_CACHE_DIR "/data/data/com.winlator/cache"
+// Keep in sync with applicationId in app/build.gradle.
+#define APP_CACHE_DIR "/data/data/com.cpmkom.winlator/cache"
 #define LIBVULKAN_PATH "/system/lib64/libvulkan.so"
 
 #define CLOSEFD(x) \

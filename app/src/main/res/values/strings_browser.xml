@@ -7,4 +7,11 @@
     <string name="browser_address_hint">Search or enter address</string>
     <string name="browser_load_error">This page could not be loaded.</string>
     <string name="browser_crashed">The page engine stopped and had to restart.</string>
+    <string name="browser_download_start">Downloading %1$s</string>
+    <string name="browser_download_done">Saved %1$s to Downloads</string>
+    <string name="browser_download_failed">Could not save %1$s</string>
+    <string name="browser_download_busy">Another download is still running</string>
+    <string name="browser_download_denied">Storage access is needed to save downloads</string>
+    <string name="browser_desktop_on">Desktop site</string>
+    <string name="browser_desktop_off">Mobile site</string>
 </resources>
