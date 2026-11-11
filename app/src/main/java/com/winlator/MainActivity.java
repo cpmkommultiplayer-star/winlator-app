@@ -208,6 +208,9 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
             case R.id.menu_item_thermal:
                 (new ThermalManagerDialog(this)).show();
                 break;
+            case R.id.menu_item_browser:
+                startActivity(new Intent(this, BrowserActivity.class));
+                break;
             case R.id.menu_item_about:
                 (new AboutDialog(this)).show();
                 break;
