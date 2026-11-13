@@ -206,16 +206,6 @@
                 android:tint="@color/px_text_dim" />
 
             <ImageButton
-                android:id="@+id/BMenuDownloads"
-                android:layout_width="0dp"
-                android:layout_height="match_parent"
-                android:layout_weight="1"
-                android:background="@drawable/px_button"
-                android:contentDescription="@string/browser_action_downloads"
-                android:padding="13dp"
-                android:visibility="gone" />
-
-            <ImageButton
                 android:id="@+id/BTBDownloads"
                 android:layout_width="0dp"
                 android:layout_height="match_parent"
