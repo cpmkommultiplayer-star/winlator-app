@@ -1,19 +1,19 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Low-poly palette: sky blue leads, pink accents. Flat fills, hard edges. -->
-    <color name="lp_sky_100">#EAF8FE</color>
-    <color name="lp_sky_200">#BFE9FB</color>
-    <color name="lp_sky_300">#8FD8F5</color>
-    <color name="lp_sky_500">#4FB6E4</color>
-    <color name="lp_sky_700">#2A7FA8</color>
-    <color name="lp_sky_900">#123A4D</color>
-    <color name="lp_ink">#0E2A38</color>
+    <!-- Pixel palette: banded purple night, pink accents. Flat fills, hard edges. -->
+    <color name="lp_sky_100">#FFEAF8</color>
+    <color name="lp_sky_200">#F3CBE8</color>
+    <color name="lp_sky_300">#E3B6F2</color>
+    <color name="lp_sky_500">#FF8FD1</color>
+    <color name="lp_sky_700">#B96BE0</color>
+    <color name="lp_sky_900">#3E2170</color>
+    <color name="lp_ink">#140A24</color>
 
     <color name="lp_pink_300">#FFB3D1</color>
-    <color name="lp_pink_500">#FF7FB2</color>
-    <color name="lp_pink_700">#E2558D</color>
-    <color name="lp_pink_900">#8E2350</color>
+    <color name="lp_pink_500">#FF4F8B</color>
+    <color name="lp_pink_700">#C93A6E</color>
+    <color name="lp_pink_900">#6E1B3C</color>
 
-    <color name="lp_night">#0C1B23</color>
-    <color name="lp_night_raised">#13303D</color>
+    <color name="lp_night">#140A24</color>
+    <color name="lp_night_raised">#2A1550</color>
 </resources>
