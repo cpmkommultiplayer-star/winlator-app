@@ -2,7 +2,7 @@
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@drawable/px_scene_bg">
+    android:background="@color/px_deep">
 
     <LinearLayout
         android:layout_width="match_parent"
@@ -204,6 +204,16 @@
                 android:padding="13dp"
                 android:src="@drawable/px_home"
                 android:tint="@color/px_text_dim" />
+
+            <ImageButton
+                android:id="@+id/BMenuDownloads"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:background="@drawable/px_button"
+                android:contentDescription="@string/browser_action_downloads"
+                android:padding="13dp"
+                android:visibility="gone" />
 
             <ImageButton
                 android:id="@+id/BTBDownloads"
