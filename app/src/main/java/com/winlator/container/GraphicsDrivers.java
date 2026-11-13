@@ -79,6 +79,19 @@ public abstract class GraphicsDrivers {
     }
 
     public static String getDefaultDriver(Context context) {
-        return GPUHelper.getAdrenoModelId(context) > 0 ? GraphicsDrivers.TURNIP+","+GraphicsDrivers.DEFAULT_OPENGL_DRIVER : GraphicsDrivers.VORTEK+","+GraphicsDrivers.DEFAULT_OPENGL_DRIVER;
+        if (GPUHelper.getAdrenoModelId(context) > 0) {
+            return GraphicsDrivers.TURNIP+","+GraphicsDrivers.DEFAULT_OPENGL_DRIVER;
+        }
+
+        // Turnip only exists for Adreno, so every other chip goes through its own Vulkan driver.
+        // Some GPUs (older Mali, PowerVR) expose no Vulkan at all; there the only working path is
+        // the OpenGL driver, and choosing Vortek would just fail to start the container.
+        try {
+            if (GPUHelper.vkGetApiVersion() == 0) return GraphicsDrivers.DEFAULT_OPENGL_DRIVER;
+        }
+        catch (Throwable ignored) {
+        }
+
+        return GraphicsDrivers.VORTEK+","+GraphicsDrivers.DEFAULT_OPENGL_DRIVER;
     }
 }

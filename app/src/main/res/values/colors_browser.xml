@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="px_deep">#08141A</color>
-    <color name="px_surface">#13303D</color>
-    <color name="px_surface_hi">#1C4052</color>
-    <color name="px_line">#2A7FA8</color>
-    <color name="px_line_dark">#071016</color>
-    <color name="px_text">#EAF8FE</color>
-    <color name="px_text_dim">#8FD8F5</color>
-    <color name="px_accent">#4FB6E4</color>
-    <color name="px_hot">#FF7FB2</color>
+    <color name="px_deep">#140A24</color>
+    <color name="px_surface">#2A1550</color>
+    <color name="px_surface_hi">#3E2170</color>
+    <color name="px_line">#B96BE0</color>
+    <color name="px_line_dark">#0B0518</color>
+    <color name="px_text">#FFEAF8</color>
+    <color name="px_text_dim">#E3B6F2</color>
+    <color name="px_accent">#FF8FD1</color>
+    <color name="px_hot">#FF4F8B</color>
 </resources>
