@@ -42,6 +42,11 @@
             </intent-filter>
         </activity>
 
+        <activity android:name="com.winlator.LinuxRuntimeActivity"
+            android:exported="false"
+            android:theme="@style/AppThemeDark"
+            android:configChanges="keyboard|keyboardHidden|orientation|screenSize|screenLayout|smallestScreenSize|density|navigation" />
+
         <activity android:name="com.winlator.BrowserActivity"
             android:process=":browser"
             android:exported="false"
