@@ -88,6 +88,24 @@
             android:textStyle="bold" />
 
         <TextView
+            android:id="@+id/BTLinuxWine"
+            android:layout_width="0dp"
+            android:layout_height="46dp"
+            android:layout_marginStart="8dp"
+            android:layout_weight="1"
+            android:alpha="0.4"
+            android:background="@drawable/px_button"
+            android:clickable="true"
+            android:focusable="true"
+            android:fontFamily="monospace"
+            android:gravity="center"
+            android:letterSpacing="0.1"
+            android:text="ADD WINE"
+            android:textColor="@color/px_hot"
+            android:textSize="11sp"
+            android:textStyle="bold" />
+
+        <TextView
             android:id="@+id/BTLinuxTest"
             android:layout_width="0dp"
             android:layout_height="46dp"
