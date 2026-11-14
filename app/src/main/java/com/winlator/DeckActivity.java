@@ -56,6 +56,7 @@ public class DeckActivity extends AppCompatActivity {
         findViewById(R.id.BDeckContainers).setOnClickListener(v -> openMenu(R.id.menu_item_containers));
         findViewById(R.id.BDeckBrowser).setOnClickListener(v -> startActivity(new Intent(this, BrowserActivity.class)));
         findViewById(R.id.BDeckSettings).setOnClickListener(v -> openMenu(R.id.menu_item_settings));
+        findViewById(R.id.BDeckLinux).setOnClickListener(v -> startActivity(new Intent(this, LinuxRuntimeActivity.class)));
         findViewById(R.id.BTDeckManager).setOnClickListener(v -> openMenu(R.id.menu_item_containers));
         findViewById(R.id.BTDeckRescan).setOnClickListener(v -> reload());
         findViewById(R.id.BTDeckPlay).setOnClickListener(v -> {
