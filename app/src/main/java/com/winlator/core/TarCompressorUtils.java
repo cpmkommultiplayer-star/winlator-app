@@ -27,7 +27,7 @@ import java.io.OutputStream;
 import java.util.concurrent.atomic.AtomicLong;
 
 public abstract class TarCompressorUtils {
-    public enum Type {XZ, ZSTD}
+    public enum Type {XZ, ZSTD, GZIP}
 
     public interface OnExtractFileListener {
         File onExtractFile(File destination, long size);
@@ -233,6 +233,9 @@ public abstract class TarCompressorUtils {
         }
         else if (type == Type.ZSTD) {
             return new ZstdCompressorInputStream(source);
+        }
+        else if (type == Type.GZIP) {
+            return new java.util.zip.GZIPInputStream(source);
         }
         return null;
     }
