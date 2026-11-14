@@ -1,0 +1,351 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/px_deep"
+    android:orientation="horizontal">
+
+    <LinearLayout
+        android:layout_width="86dp"
+        android:layout_height="match_parent"
+        android:background="@drawable/px_bar"
+        android:orientation="vertical"
+        android:paddingBottom="8dp"
+        android:paddingTop="8dp">
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="40dp"
+            android:gravity="center"
+            android:fontFamily="monospace"
+            android:letterSpacing="0.08"
+            android:text="FSR"
+            android:textColor="@color/px_deep"
+            android:textSize="13sp"
+            android:textStyle="bold"
+            android:background="@drawable/px_badge" />
+
+        <LinearLayout
+            android:id="@+id/BDeckHome"
+            android:layout_width="match_parent"
+            android:layout_height="62dp"
+            android:layout_marginTop="8dp"
+            android:background="@drawable/px_button"
+            android:clickable="true"
+            android:focusable="true"
+            android:gravity="center"
+            android:orientation="vertical">
+
+            <ImageView
+                android:layout_width="22dp"
+                android:layout_height="22dp"
+                android:contentDescription="Home"
+                android:src="@drawable/px_home"
+                android:tint="@color/px_accent" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="3dp"
+                android:fontFamily="monospace"
+                android:letterSpacing="0.1"
+                android:text="HOME"
+                android:textColor="@color/px_text_dim"
+                android:textSize="8sp" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/BDeckLibrary"
+            android:layout_width="match_parent"
+            android:layout_height="62dp"
+            android:background="@drawable/px_button"
+            android:clickable="true"
+            android:focusable="true"
+            android:gravity="center"
+            android:orientation="vertical">
+
+            <ImageView
+                android:layout_width="22dp"
+                android:layout_height="22dp"
+                android:contentDescription="Library"
+                android:src="@drawable/px_tabs"
+                android:tint="@color/px_text_dim" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="3dp"
+                android:fontFamily="monospace"
+                android:letterSpacing="0.1"
+                android:text="LIBRARY"
+                android:textColor="@color/px_text_dim"
+                android:textSize="8sp" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/BDeckContainers"
+            android:layout_width="match_parent"
+            android:layout_height="62dp"
+            android:background="@drawable/px_button"
+            android:clickable="true"
+            android:focusable="true"
+            android:gravity="center"
+            android:orientation="vertical">
+
+            <ImageView
+                android:layout_width="22dp"
+                android:layout_height="22dp"
+                android:contentDescription="Containers"
+                android:src="@drawable/px_menu"
+                android:tint="@color/px_text_dim" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="3dp"
+                android:fontFamily="monospace"
+                android:letterSpacing="0.1"
+                android:text="CELLARS"
+                android:textColor="@color/px_text_dim"
+                android:textSize="8sp" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/BDeckBrowser"
+            android:layout_width="match_parent"
+            android:layout_height="62dp"
+            android:background="@drawable/px_button"
+            android:clickable="true"
+            android:focusable="true"
+            android:gravity="center"
+            android:orientation="vertical">
+
+            <ImageView
+                android:layout_width="22dp"
+                android:layout_height="22dp"
+                android:contentDescription="Browser"
+                android:src="@drawable/px_download"
+                android:tint="@color/px_text_dim" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="3dp"
+                android:fontFamily="monospace"
+                android:letterSpacing="0.1"
+                android:text="BROWSER"
+                android:textColor="@color/px_text_dim"
+                android:textSize="8sp" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/BDeckSettings"
+            android:layout_width="match_parent"
+            android:layout_height="62dp"
+            android:background="@drawable/px_button"
+            android:clickable="true"
+            android:focusable="true"
+            android:gravity="center"
+            android:orientation="vertical">
+
+            <ImageView
+                android:layout_width="22dp"
+                android:layout_height="22dp"
+                android:contentDescription="Settings"
+                android:src="@drawable/px_find"
+                android:tint="@color/px_text_dim" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="3dp"
+                android:fontFamily="monospace"
+                android:letterSpacing="0.1"
+                android:text="CONFIG"
+                android:textColor="@color/px_text_dim"
+                android:textSize="8sp" />
+        </LinearLayout>
+    </LinearLayout>
+
+    <LinearLayout
+        android:layout_width="0dp"
+        android:layout_height="match_parent"
+        android:layout_weight="1"
+        android:orientation="vertical"
+        android:padding="16dp">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:fontFamily="monospace"
+            android:letterSpacing="0.18"
+            android:text="WINLATOR FSR"
+            android:textColor="@color/px_accent"
+            android:textSize="13sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/TVDeckCount"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="2dp"
+            android:fontFamily="monospace"
+            android:letterSpacing="0.12"
+            android:text="0 GAMES"
+            android:textColor="@color/px_text_dim"
+            android:textSize="9sp" />
+
+        <LinearLayout
+            android:id="@+id/LDeckHero"
+            android:layout_width="match_parent"
+            android:layout_height="196dp"
+            android:layout_marginTop="14dp"
+            android:background="@drawable/px_panel"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:padding="14dp"
+            android:visibility="gone">
+
+            <ImageView
+                android:id="@+id/IHDeckHeroIcon"
+                android:layout_width="150dp"
+                android:layout_height="150dp"
+                android:contentDescription="Game icon"
+                android:scaleType="fitCenter" />
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:gravity="center_vertical"
+                android:orientation="vertical"
+                android:paddingEnd="14dp"
+                android:paddingStart="16dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:fontFamily="monospace"
+                    android:letterSpacing="0.16"
+                    android:text="CONTINUE PLAYING"
+                    android:textColor="@color/px_hot"
+                    android:textSize="9sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:id="@+id/TVDeckHeroName"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp"
+                    android:ellipsize="end"
+                    android:fontFamily="monospace"
+                    android:maxLines="2"
+                    android:textColor="@color/px_text"
+                    android:textSize="21sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:id="@+id/TVDeckHeroMeta"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:fontFamily="monospace"
+                    android:letterSpacing="0.14"
+                    android:maxLines="1"
+                    android:textColor="@color/px_text_dim"
+                    android:textSize="9sp" />
+            </LinearLayout>
+
+            <TextView
+                android:id="@+id/BTDeckPlay"
+                android:layout_width="112dp"
+                android:layout_height="54dp"
+                android:background="@drawable/px_badge"
+                android:clickable="true"
+                android:focusable="true"
+                android:fontFamily="monospace"
+                android:gravity="center"
+                android:letterSpacing="0.14"
+                android:text="PLAY"
+                android:textColor="@color/px_deep"
+                android:textSize="13sp"
+                android:textStyle="bold" />
+        </LinearLayout>
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="18dp"
+            android:fontFamily="monospace"
+            android:letterSpacing="0.18"
+            android:text="YOUR LIBRARY"
+            android:textColor="@color/px_text_dim"
+            android:textSize="10sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/TVDeckEmpty"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:fontFamily="monospace"
+            android:lineSpacingExtra="4dp"
+            android:textColor="@color/px_hot"
+            android:textSize="11sp"
+            android:visibility="gone" />
+
+        <HorizontalScrollView
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:layout_marginTop="8dp"
+            android:scrollbars="none">
+
+            <LinearLayout
+                android:id="@+id/LDeckShelf"
+                android:layout_width="wrap_content"
+                android:layout_height="match_parent"
+                android:gravity="center_vertical"
+                android:orientation="horizontal" />
+        </HorizontalScrollView>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+
+            <TextView
+                android:id="@+id/BTDeckManager"
+                android:layout_width="0dp"
+                android:layout_height="44dp"
+                android:layout_weight="1"
+                android:background="@drawable/px_button"
+                android:clickable="true"
+                android:focusable="true"
+                android:fontFamily="monospace"
+                android:gravity="center"
+                android:letterSpacing="0.14"
+                android:text="OPEN MANAGER"
+                android:textColor="@color/px_accent"
+                android:textSize="10sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/BTDeckRescan"
+                android:layout_width="0dp"
+                android:layout_height="44dp"
+                android:layout_marginStart="8dp"
+                android:layout_weight="1"
+                android:background="@drawable/px_button"
+                android:clickable="true"
+                android:focusable="true"
+                android:fontFamily="monospace"
+                android:gravity="center"
+                android:letterSpacing="0.14"
+                android:text="RESCAN"
+                android:textColor="@color/px_text_dim"
+                android:textSize="10sp"
+                android:textStyle="bold" />
+        </LinearLayout>
+    </LinearLayout>
+</LinearLayout>
