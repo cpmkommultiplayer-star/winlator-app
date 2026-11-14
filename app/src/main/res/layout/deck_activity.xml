@@ -165,6 +165,34 @@
                 android:textColor="@color/px_text_dim"
                 android:textSize="8sp" />
         </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/BDeckLinux"
+            android:layout_width="match_parent"
+            android:layout_height="62dp"
+            android:background="@drawable/px_button"
+            android:clickable="true"
+            android:focusable="true"
+            android:gravity="center"
+            android:orientation="vertical">
+
+            <ImageView
+                android:layout_width="22dp"
+                android:layout_height="22dp"
+                android:contentDescription="Linux runtime"
+                android:src="@drawable/px_plus"
+                android:tint="@color/px_hot" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="3dp"
+                android:fontFamily="monospace"
+                android:letterSpacing="0.1"
+                android:text="LINUX"
+                android:textColor="@color/px_hot"
+                android:textSize="8sp" />
+        </LinearLayout>
     </LinearLayout>
 
     <LinearLayout
