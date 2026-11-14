@@ -20,21 +20,21 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Milestone 1 of the FEX/PRoot path: a real Linux ARM userland on the device.
+ * The Linux ARM userland that Windows binaries will run inside.
  *
- * PRoot fakes chroot and bind mounts without root, so a full Arch Linux ARM tree can run
- * inside app storage. Nothing here touches the existing Wine/Box64 container path; this
- * runtime is installed and tested separately until it can host FEX and Wine.
- *
- * proot is the published static aarch64 binary (GPL-2.0-or-later), shipped unmodified
- * with its licence in NOTICE. The rootfs is downloaded from archlinuxarm.org on the
- * device; no Linux distribution files are bundled in this APK.
+ * PRoot fakes chroot and bind mounts without root, so a full Arch Linux ARM tree runs in
+ * app storage. box64 is bound in as the x86_64 translator and Wine is bound at /opt/wine.
+ * Nothing here touches the existing Wine/Box64 container path; that path keeps working
+ * exactly as before while this one is proved out.
  */
 public abstract class LinuxRuntime {
     public static final String ROOTFS_URL = "http://os.archlinuxarm.org/os/ArchLinuxARM-aarch64-latest.tar.gz";
     public static final long ROOTFS_BYTES = 829367415L;
     public static final String PROOT_ASSET = "runtime/proot-aarch64";
     public static final String PROOT_SHA256 = "fa10b1a7818c2f5b1dcb5834450570c368c9ecf66d31521509621b95c4538a45";
+    public static final String BOX64_ASSET = "runtime/box64-aarch64";
+    public static final String BOX64_SHA256 = "33d37281f1326c583af41ea39dfd62720c2756c32c58acf53c248cc9fe249b2c";
+    public static final String WINE_URL = "https://github.com/Kron4ek/Wine-Builds/releases/download/11.22/wine-11.22-amd64.tar.xz";
 
     public interface Progress {
         void onStage(String stage, long done, long total);
@@ -56,6 +56,22 @@ public abstract class LinuxRuntime {
         return new File(dir(context), "rootfs.tar.gz");
     }
 
+    public static File box64File(Context context) {
+        return new File(dir(context), "box64");
+    }
+
+    public static File wineDir(Context context) {
+        return new File(dir(context), "wine");
+    }
+
+    public static File wineArchive(Context context) {
+        return new File(dir(context), "wine.tar.xz");
+    }
+
+    public static boolean isWineInstalled(Context context) {
+        return new File(wineDir(context), "bin/wine").isFile();
+    }
+
     public static boolean isInstalled(Context context) {
         return new File(rootfsDir(context), "bin/sh").isFile() && prootFile(context).isFile();
     }
@@ -73,6 +89,95 @@ public abstract class LinuxRuntime {
         }
         FileUtils.chmod(target, 0755);
         return true;
+    }
+
+    public static boolean installBox64(Context context) {
+        File target = box64File(context);
+        if (!dir(context).isDirectory() && !dir(context).mkdirs()) return false;
+        if (target.isFile() && target.length() > 0) {
+            FileUtils.chmod(target, 0755);
+            return true;
+        }
+        try (InputStream in = context.getAssets().open(BOX64_ASSET);
+             OutputStream out = new FileOutputStream(target)) {
+            StreamUtils.copy(in, out);
+        }
+        catch (Exception e) {
+            return false;
+        }
+        FileUtils.chmod(target, 0755);
+        return true;
+    }
+
+    /** Downloads the x86_64 Wine build that box64 will translate. */
+    public static boolean downloadWine(Context context, Progress progress) {
+        File target = wineArchive(context);
+        if (target.isFile() && target.length() > 1024 * 1024) return true;
+        if (!dir(context).isDirectory() && !dir(context).mkdirs()) return false;
+
+        File part = new File(dir(context), "wine.tar.xz.part");
+        HttpURLConnection connection = null;
+        try {
+            connection = (HttpURLConnection)new URL(WINE_URL).openConnection();
+            connection.setConnectTimeout(20000);
+            connection.setReadTimeout(30000);
+            connection.setInstanceFollowRedirects(true);
+
+            long total = connection.getContentLengthLong();
+            try (InputStream in = new BufferedInputStream(connection.getInputStream(), StreamUtils.BUFFER_SIZE);
+                 OutputStream out = new BufferedOutputStream(new FileOutputStream(part), StreamUtils.BUFFER_SIZE)) {
+                byte[] buffer = new byte[StreamUtils.BUFFER_SIZE];
+                long done = 0;
+                int read;
+                while ((read = in.read(buffer)) != -1) {
+                    out.write(buffer, 0, read);
+                    done += read;
+                    if (progress != null) progress.onStage("WINE", done, total);
+                }
+            }
+
+            if (part.length() <= 1024 * 1024) return false;
+            if (target.isFile()) target.delete();
+            return part.renameTo(target);
+        }
+        catch (Exception e) {
+            return false;
+        }
+        finally {
+            if (connection != null) connection.disconnect();
+        }
+    }
+
+    /** The tarball holds one top-level directory; flatten it to linux/wine. */
+    public static boolean extractWine(Context context, Progress progress) {
+        File archive = wineArchive(context);
+        if (!archive.isFile()) return false;
+        File staging = new File(dir(context), "wine-staging");
+        FileUtils.delete(staging);
+        if (!staging.mkdirs()) return false;
+
+        long[] counter = {0};
+        boolean ok = TarCompressorUtils.extract(TarCompressorUtils.Type.XZ, archive, staging, (file, size) -> {
+            counter[0] += size;
+            if (progress != null) progress.onStage("WINE", counter[0], archive.length());
+            return file;
+        });
+        if (!ok) return false;
+
+        File[] roots = staging.listFiles();
+        if (roots == null || roots.length == 0) return false;
+        File source = roots[0];
+        for (File candidate : roots) {
+            if (new File(candidate, "bin/wine").isFile()) {
+                source = candidate;
+                break;
+            }
+        }
+
+        File destination = wineDir(context);
+        if (!new File(source, "bin/wine").isFile()) return false;
+        FileUtils.delete(destination);
+        return source.renameTo(destination);
     }
 
     public static boolean downloadRootfs(Context context, Progress progress) {
@@ -154,6 +259,18 @@ public abstract class LinuxRuntime {
         args.add("/sys");
         args.add("-w");
         args.add("/root");
+
+        File box64 = box64File(context);
+        if (box64.isFile()) {
+            args.add("-b");
+            args.add(box64.getPath()+":/usr/local/bin/box64");
+        }
+        File wine = wineDir(context);
+        if (wine.isDirectory()) {
+            args.add("-b");
+            args.add(wine.getPath()+":/opt/wine");
+        }
+
         args.add("/usr/bin/env");
         args.add("-i");
         args.add("HOME=/root");
