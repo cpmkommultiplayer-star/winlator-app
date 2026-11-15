@@ -23,6 +23,15 @@ public class RootFS {
         this.rootDir = rootDir;
     }
 
+    /**
+     * A RootFS over an arbitrary directory. Container sessions use {@link #find(Context)};
+     * the Linux runtime keeps its own tree and needs a RootFS that points at it instead of
+     * at the container image.
+     */
+    public static RootFS at(File rootDir) {
+        return new RootFS(rootDir);
+    }
+
     public static RootFS find(Context context) {
         File legacyDir = new File(context.getFilesDir(), "imagefs");
         File rootDir = new File(context.getFilesDir(), "rootfs");
