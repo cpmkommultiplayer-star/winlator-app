@@ -100,7 +100,7 @@
             android:fontFamily="monospace"
             android:gravity="center"
             android:letterSpacing="0.1"
-            android:text="ADD WINE"
+            android:text="ADD PROTON"
             android:textColor="@color/px_hot"
             android:textSize="11sp"
             android:textStyle="bold" />

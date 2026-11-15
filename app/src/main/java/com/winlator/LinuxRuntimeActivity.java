@@ -27,7 +27,7 @@ public class LinuxRuntimeActivity extends AppCompatActivity {
     private ProgressBar progressBar;
     private TextView installButton;
     private TextView testButton;
-    private TextView wineButton;
+    private TextView protonButton;
     private boolean busy = false;
 
     @Override
@@ -41,12 +41,12 @@ public class LinuxRuntimeActivity extends AppCompatActivity {
         progressBar = findViewById(R.id.PBLinux);
         installButton = findViewById(R.id.BTLinuxInstall);
         testButton = findViewById(R.id.BTLinuxTest);
-        wineButton = findViewById(R.id.BTLinuxWine);
+        protonButton = findViewById(R.id.BTLinuxWine);
 
         findViewById(R.id.BTLinuxBack).setOnClickListener(v -> finish());
         installButton.setOnClickListener(v -> startInstall());
         testButton.setOnClickListener(v -> runTest());
-        wineButton.setOnClickListener(v -> startWineInstall());
+        protonButton.setOnClickListener(v -> startProtonInstall());
 
         refresh();
     }
@@ -59,7 +59,7 @@ public class LinuxRuntimeActivity extends AppCompatActivity {
 
     private void refresh() {
         boolean installed = LinuxRuntime.isInstalled(this);
-        boolean wine = LinuxRuntime.isWineInstalled(this);
+        boolean proton = LinuxRuntime.isProtonInstalled(this);
         boolean hasArchive = LinuxRuntime.rootfsArchive(this).isFile();
 
         String text;
@@ -68,19 +68,19 @@ public class LinuxRuntimeActivity extends AppCompatActivity {
                 ? "ARCHIVE DOWNLOADED\n" + LinuxRuntime.rootfsArchive(this).length() + " bytes, not extracted yet"
                 : "NOT INSTALLED\nAbout 830 MB will be downloaded from archlinuxarm.org";
         }
-        else if (!wine) {
+        else if (!proton) {
             text = "RUNTIME READY\nPRoot + Arch Linux ARM installed. box64 "
                 + (LinuxRuntime.box64File(this).isFile() ? "present" : "missing")
-                + ", Wine not installed yet.";
+                + ", Proton not installed yet.";
         }
         else {
-            text = "READY\nPRoot + Arch Linux ARM + box64 + Wine 11.22 (x86_64)\n"
-                + "RUN TEST prints the Wine version through box64.";
+            text = "READY\nPRoot + Arch Linux ARM + Proton GE aarch64\n"
+                + "Wine here is native arm64; RUN TEST prints its version.";
         }
 
         statusView.setText(text);
         testButton.setAlpha(installed ? 1f : 0.4f);
-        wineButton.setAlpha(installed && !wine ? 1f : 0.4f);
+        protonButton.setAlpha(installed && !proton ? 1f : 0.4f);
         installButton.setAlpha(busy ? 0.4f : 1f);
     }
 
@@ -88,7 +88,7 @@ public class LinuxRuntimeActivity extends AppCompatActivity {
         busy = value;
         installButton.setEnabled(!value);
         testButton.setEnabled(!value && LinuxRuntime.isInstalled(this));
-        wineButton.setEnabled(!value && LinuxRuntime.isInstalled(this));
+        protonButton.setEnabled(!value && LinuxRuntime.isInstalled(this));
         progressBar.setVisibility(value ? View.VISIBLE : View.GONE);
         refresh();
     }
@@ -135,10 +135,10 @@ public class LinuxRuntimeActivity extends AppCompatActivity {
         });
     }
 
-    private void startWineInstall() {
+    private void startProtonInstall() {
         if (busy || !LinuxRuntime.isInstalled(this)) return;
         setBusy(true);
-        statusView.setText("DOWNLOADING WINE");
+        statusView.setText("DOWNLOADING PROTON 650 MB");
 
         worker.execute(() -> {
             LinuxRuntime.Progress progress = (stage, done, total) -> {
@@ -149,13 +149,13 @@ public class LinuxRuntimeActivity extends AppCompatActivity {
                 });
             };
 
-            if (!LinuxRuntime.downloadWine(this, progress)) {
-                main.post(() -> { setBusy(false); statusView.setText("FAILED: wine download"); });
+            if (!LinuxRuntime.downloadProton(this, progress)) {
+                main.post(() -> { setBusy(false); statusView.setText("FAILED: proton download or checksum"); });
                 return;
             }
-            setStage("EXTRACTING WINE");
-            if (!LinuxRuntime.extractWine(this, progress)) {
-                main.post(() -> { setBusy(false); statusView.setText("FAILED: wine extraction"); });
+            setStage("EXTRACTING PROTON");
+            if (!LinuxRuntime.extractProton(this, progress)) {
+                main.post(() -> { setBusy(false); statusView.setText("FAILED: proton extraction"); });
                 return;
             }
             main.post(() -> {
@@ -171,9 +171,12 @@ public class LinuxRuntimeActivity extends AppCompatActivity {
         logView.setText("running test...");
         worker.execute(() -> {
             String output = LinuxRuntime.run(this,
-                "uname -m; id -u; box64 --version 2>&1 | head -2; "
-                    + "PATH=/opt/wine/bin:$PATH box64 /opt/wine/bin/wine --version 2>&1 | head -3; "
-                    + "ls /");
+                "uname -m; id -u; "
+                    + "if [ -x /opt/proton/files/bin-arm64/wine ]; then "
+                    + "  /opt/proton/files/bin-arm64/wine --version 2>&1 | head -3; "
+                    + "  ls /opt/proton/files/share/fex-emu; "
+                    + "else echo 'proton not installed'; fi; "
+                    + "box64 --version 2>&1 | head -1");
             main.post(() -> {
                 logView.setText(output);
                 setBusy(false);
