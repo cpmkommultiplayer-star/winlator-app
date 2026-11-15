@@ -13,15 +13,20 @@ import androidx.appcompat.app.AppCompatActivity;
 
 import com.winlator.container.Container;
 import com.winlator.core.AppUtils;
+import com.winlator.inputcontrols.ControlsProfile;
+import com.winlator.inputcontrols.InputControlsManager;
+import com.winlator.widget.InputControlsView;
 import com.winlator.widget.TouchpadView;
 import com.winlator.widget.XServerView;
 import com.winlator.xconnector.UnixSocketConfig;
+import com.winlator.xenvironment.RootFS;
 import com.winlator.xenvironment.XEnvironment;
 import com.winlator.xenvironment.components.PulseAudioComponent;
 import com.winlator.xenvironment.components.XServerComponent;
 import com.winlator.xserver.ScreenInfo;
 import com.winlator.xserver.XServer;
 
+import java.util.ArrayList;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -50,6 +55,8 @@ public class LinuxRuntimeActivity extends AppCompatActivity {
     private XServer xServer;
     private XServerView xServerView;
     private TouchpadView touchpadView;
+    private InputControlsView inputControlsView;
+    private InputControlsManager inputControlsManager;
     private XEnvironment environment;
 
     @Override
@@ -93,6 +100,7 @@ public class LinuxRuntimeActivity extends AppCompatActivity {
 
     @Override
     public boolean dispatchKeyEvent(KeyEvent event) {
+        if (inputControlsView != null && inputControlsView.onKeyEvent(event)) return true;
         if (xServer != null && xServer.keyboard.onKeyEvent(event)) return true;
         return super.dispatchKeyEvent(event);
     }
@@ -118,7 +126,28 @@ public class LinuxRuntimeActivity extends AppCompatActivity {
         touchpadView.setSensitivity(1.0f);
         ((android.view.ViewGroup)displayContainer).addView(touchpadView);
 
-        environment = new XEnvironment(this, null);
+        inputControlsManager = new InputControlsManager(this);
+        inputControlsManager.loadProfiles(false);
+        inputControlsView = new InputControlsView(this);
+        inputControlsView.setOverlayOpacity(InputControlsView.DEFAULT_OVERLAY_OPACITY);
+        inputControlsView.setTouchpadView(touchpadView);
+        inputControlsView.setXServer(xServer);
+        inputControlsView.setVisibility(View.GONE);
+        ((android.view.ViewGroup)displayContainer).addView(inputControlsView);
+
+        ArrayList<ControlsProfile> profiles = inputControlsManager.getProfiles();
+        if (!profiles.isEmpty()) {
+            ControlsProfile profile = profiles.get(0);
+            inputControlsView.setProfile(profile);
+            inputControlsView.setVisibility(View.VISIBLE);
+            if (profile.isDisableMouseInput()) {
+                xServerView.getRenderer().setCursorVisible(false);
+                touchpadView.setEnabled(false);
+            }
+            else touchpadView.setSensitivity(profile.getCursorSpeed());
+        }
+
+        environment = new XEnvironment(this, RootFS.at(LinuxRuntime.rootfsDir(this)));
         environment.addComponent(new XServerComponent(xServer, UnixSocketConfig.create(rootPath, "/tmp/.X11-unix/X0")));
         environment.addComponent(new PulseAudioComponent(UnixSocketConfig.create(rootPath, "/tmp/.sound/PS0")));
         environment.startEnvironmentComponents();
