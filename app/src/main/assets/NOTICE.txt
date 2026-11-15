@@ -72,6 +72,45 @@ assets/pulseaudio.tzst)
     Assembled from upstream distributions, including Wine, which is
     LGPL 2.1 or later (https://www.winehq.org/).
 
+Linux runtime: PRoot, box64, Proton and FEX
+-------------------------------------------
+
+PRoot 5.3.0, static aarch64 build (app/src/main/assets/runtime/proot-aarch64,
+fetched by tools/fetch_runtime.sh)
+    GNU General Public License, version 2 or later.
+    Redistributed unmodified as published by the project.
+    Source: https://github.com/proot-me/proot
+    Licence text: https://www.gnu.org/licenses/old-licenses/gpl-2.0.html
+
+box64 for aarch64/glibc (app/src/main/assets/runtime/box64-aarch64)
+    MIT. Cross-compiled from upstream source with the Bootlin aarch64 glibc
+    toolchain; no source changes were made.
+    Source: https://github.com/ptitSeb/box64
+
+Arch Linux ARM root filesystem (downloaded on the device at install time from
+http://os.archlinuxarm.org/os/ArchLinuxARM-aarch64-latest.tar.gz)
+    Not redistributed in this repository. It is an upstream distribution image
+    and every package inside it keeps its own licence (predominantly GPL, LGPL,
+    MIT, BSD and Apache 2.0). Each package's licence is installed in
+    /usr/share/licenses inside the tree.
+    Project: https://archlinuxarm.org/
+
+GE-Proton 11.12 aarch64 (downloaded on the device at install time from
+https://github.com/GloriousEggroll/proton-ge-custom, and only accepted when its
+SHA-512 matches the value in LinuxRuntime.java)
+    Not redistributed in this repository. The top level of GE-Proton is BSD
+    3-Clause, Copyright (c) 2018-2022 Valve Corporation; the rest of Proton is
+    governed by LICENSE.proton in the release, and each bundled component
+    (Wine, DXVK, VKD3D-Proton, FFmpeg, GStreamer, and the rest) keeps its own
+    licence.
+    Project: https://github.com/GloriousEggroll/proton-ge-custom
+
+FEX-Emu (inside that Proton download: files/lib/wow64fex.so,
+files/lib/arm64ecfex.dll and files/share/fex-emu)
+    MIT. Source: https://github.com/FEX-Emu/FEX
+    This is the component that runs a game's x86_64 code; Wine itself is
+    native aarch64 machine code and is not translated.
+
 
 Upscaling
 ---------
