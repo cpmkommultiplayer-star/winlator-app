@@ -9,15 +9,26 @@ import android.widget.TextView;
 
 import androidx.appcompat.app.AppCompatActivity;
 
+import com.winlator.container.Container;
 import com.winlator.core.AppUtils;
+import com.winlator.widget.XServerView;
+import com.winlator.xconnector.UnixSocketConfig;
+import com.winlator.xenvironment.XEnvironment;
+import com.winlator.xenvironment.components.PulseAudioComponent;
+import com.winlator.xenvironment.components.XServerComponent;
+import com.winlator.xserver.ScreenInfo;
+import com.winlator.xserver.XServer;
 
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 /**
- * Installs and tests the Linux runtime. Deliberately separate from the Wine containers:
- * this screen can do nothing to a working container, and a working container can do
- * nothing to it.
+ * Installs the runtime and hosts a display for it.
+ *
+ * The X server and the PulseAudio server are the same components a container session uses.
+ * Their sockets are created inside the runtime's own rootfs tree, so /tmp/.X11-unix/X0 and
+ * /tmp/.sound/PS0 exist at exactly the paths Proton looks for; no extra bind mounts are
+ * needed and the container path is untouched.
  */
 public class LinuxRuntimeActivity extends AppCompatActivity {
     private final ExecutorService worker = Executors.newSingleThreadExecutor();
@@ -28,7 +39,14 @@ public class LinuxRuntimeActivity extends AppCompatActivity {
     private TextView installButton;
     private TextView testButton;
     private TextView protonButton;
+    private TextView runButton;
+    private TextView commandView;
+    private View displayContainer;
     private boolean busy = false;
+
+    private XServer xServer;
+    private XServerView xServerView;
+    private XEnvironment environment;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -42,19 +60,49 @@ public class LinuxRuntimeActivity extends AppCompatActivity {
         installButton = findViewById(R.id.BTLinuxInstall);
         testButton = findViewById(R.id.BTLinuxTest);
         protonButton = findViewById(R.id.BTLinuxWine);
+        runButton = findViewById(R.id.BTLinuxRun);
+        commandView = findViewById(R.id.ETLinuxCommand);
+        displayContainer = findViewById(R.id.FLRuntimeDisplay);
 
         findViewById(R.id.BTLinuxBack).setOnClickListener(v -> finish());
         installButton.setOnClickListener(v -> startInstall());
         testButton.setOnClickListener(v -> runTest());
         protonButton.setOnClickListener(v -> startProtonInstall());
+        runButton.setOnClickListener(v -> runCommand());
 
         refresh();
     }
 
     @Override
+    protected void onResume() {
+        super.onResume();
+        if (LinuxRuntime.isInstalled(this)) startDisplay();
+        refresh();
+    }
+
+    @Override
     protected void onDestroy() {
+        if (environment != null) environment.stopEnvironmentComponents();
         worker.shutdownNow();
         super.onDestroy();
+    }
+
+    /** Starts the app's own X server and PulseAudio against the runtime rootfs. */
+    private void startDisplay() {
+        if (xServer != null) return;
+
+        String rootPath = LinuxRuntime.rootfsDir(this).getPath();
+        ScreenInfo screenInfo = new ScreenInfo(Container.DEFAULT_SCREEN_SIZE);
+
+        xServer = new XServer(this, screenInfo);
+        xServerView = new XServerView(this, xServer);
+        xServer.setRenderer(xServerView.getRenderer());
+        ((android.view.ViewGroup)displayContainer).addView(xServerView);
+
+        environment = new XEnvironment(this, null);
+        environment.addComponent(new XServerComponent(xServer, UnixSocketConfig.create(rootPath, "/tmp/.X11-unix/X0")));
+        environment.addComponent(new PulseAudioComponent(UnixSocketConfig.create(rootPath, "/tmp/.sound/PS0")));
+        environment.startEnvironmentComponents();
     }
 
     private void refresh() {
@@ -75,13 +123,14 @@ public class LinuxRuntimeActivity extends AppCompatActivity {
         }
         else {
             text = "READY\nPRoot + Arch Linux ARM + Proton GE aarch64\n"
-                + "Wine here is native arm64; RUN TEST prints its version.";
+                + "Display :0 and PulseAudio are live for this screen.";
         }
 
         statusView.setText(text);
         testButton.setAlpha(installed ? 1f : 0.4f);
         protonButton.setAlpha(installed && !proton ? 1f : 0.4f);
         installButton.setAlpha(busy ? 0.4f : 1f);
+        runButton.setAlpha(installed ? 1f : 0.4f);
     }
 
     private void setBusy(boolean value) {
@@ -89,6 +138,7 @@ public class LinuxRuntimeActivity extends AppCompatActivity {
         installButton.setEnabled(!value);
         testButton.setEnabled(!value && LinuxRuntime.isInstalled(this));
         protonButton.setEnabled(!value && LinuxRuntime.isInstalled(this));
+        runButton.setEnabled(!value && LinuxRuntime.isInstalled(this));
         progressBar.setVisibility(value ? View.VISIBLE : View.GONE);
         refresh();
     }
@@ -130,6 +180,7 @@ public class LinuxRuntimeActivity extends AppCompatActivity {
 
             main.post(() -> {
                 setBusy(false);
+                startDisplay();
                 refresh();
             });
         });
@@ -171,14 +222,29 @@ public class LinuxRuntimeActivity extends AppCompatActivity {
         logView.setText("running test...");
         worker.execute(() -> {
             String output = LinuxRuntime.run(this,
-                "uname -m; id -u; "
+                "uname -m; id -u; echo DISPLAY=$DISPLAY; echo PULSE=$PULSE_SERVER; "
                     + "if [ -x /opt/proton/files/bin-arm64/wine ]; then "
                     + "  /opt/proton/files/bin-arm64/wine --version 2>&1 | head -3; "
                     + "  ls /opt/proton/files/share/fex-emu; "
-                    + "else echo 'proton not installed'; fi; "
-                    + "box64 --version 2>&1 | head -1");
+                    + "else echo 'proton not installed'; fi");
             main.post(() -> {
                 logView.setText(output);
+                setBusy(false);
+            });
+        });
+    }
+
+    private void runCommand() {
+        if (busy || !LinuxRuntime.isInstalled(this)) return;
+        String command = commandView.getText().toString().trim();
+        if (command.isEmpty()) return;
+
+        setBusy(true);
+        logView.setText("running: " + command);
+        worker.execute(() -> {
+            String output = LinuxRuntime.run(this, command);
+            main.post(() -> {
+                logView.setText(output.isEmpty() ? "(no output)" : output);
                 setBusy(false);
             });
         });
