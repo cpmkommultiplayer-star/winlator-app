@@ -135,9 +135,12 @@ public abstract class DrawRequests {
             dstDrawable.setData(null);
             dstDrawable.setTexture(srcDrawable.getTexture());
 
-            if (srcDrawableId != client.xServer.activity.frameRatingWindowId) {
-                Window srcWindow =  client.xServer.windowManager.getWindow(srcDrawableId);
-                client.xServer.activity.changeFrameRatingVisibility(srcWindow, true);
+            if (client.xServer.activity instanceof com.winlator.XServerDisplayActivity) {
+                com.winlator.XServerDisplayActivity activity = (com.winlator.XServerDisplayActivity)client.xServer.activity;
+                if (srcDrawableId != activity.frameRatingWindowId) {
+                    Window srcWindow =  client.xServer.windowManager.getWindow(srcDrawableId);
+                    activity.changeFrameRatingVisibility(srcWindow, true);
+                }
             }
             return;
         }
