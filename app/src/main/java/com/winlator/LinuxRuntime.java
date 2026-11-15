@@ -325,6 +325,10 @@ public abstract class LinuxRuntime {
         args.add("HOME=/root");
         args.add("TERM=xterm");
         args.add("PATH=/opt/proton/files/bin-arm64:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin");
+        args.add("DISPLAY=:0");
+        args.add("PULSE_SERVER=/tmp/.sound/PS0");
+        args.add("PULSE_LATENCY_MSEC=60");
+        args.add("X11_WND_GPU_INFO=1");
         if (protonReady) {
             args.add("WINEPREFIX=/root/.wine");
             args.add("LD_LIBRARY_PATH=/opt/proton/files/lib:/opt/proton/files/lib/aarch64-linux-gnu");
