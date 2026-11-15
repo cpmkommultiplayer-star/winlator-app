@@ -3,6 +3,8 @@ package com.winlator;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.view.KeyEvent;
+import android.view.MotionEvent;
 import android.view.View;
 import android.widget.ProgressBar;
 import android.widget.TextView;
@@ -11,6 +13,7 @@ import androidx.appcompat.app.AppCompatActivity;
 
 import com.winlator.container.Container;
 import com.winlator.core.AppUtils;
+import com.winlator.widget.TouchpadView;
 import com.winlator.widget.XServerView;
 import com.winlator.xconnector.UnixSocketConfig;
 import com.winlator.xenvironment.XEnvironment;
@@ -46,6 +49,7 @@ public class LinuxRuntimeActivity extends AppCompatActivity {
 
     private XServer xServer;
     private XServerView xServerView;
+    private TouchpadView touchpadView;
     private XEnvironment environment;
 
     @Override
@@ -87,6 +91,17 @@ public class LinuxRuntimeActivity extends AppCompatActivity {
         super.onDestroy();
     }
 
+    @Override
+    public boolean dispatchKeyEvent(KeyEvent event) {
+        if (xServer != null && xServer.keyboard.onKeyEvent(event)) return true;
+        return super.dispatchKeyEvent(event);
+    }
+
+    @Override
+    public boolean dispatchGenericMotionEvent(MotionEvent event) {
+        return !(touchpadView != null && touchpadView.onExternalMouseEvent(event)) && super.dispatchGenericMotionEvent(event);
+    }
+
     /** Starts the app's own X server and PulseAudio against the runtime rootfs. */
     private void startDisplay() {
         if (xServer != null) return;
@@ -98,6 +113,10 @@ public class LinuxRuntimeActivity extends AppCompatActivity {
         xServerView = new XServerView(this, xServer);
         xServer.setRenderer(xServerView.getRenderer());
         ((android.view.ViewGroup)displayContainer).addView(xServerView);
+
+        touchpadView = new TouchpadView(this, xServer, true);
+        touchpadView.setSensitivity(1.0f);
+        ((android.view.ViewGroup)displayContainer).addView(touchpadView);
 
         environment = new XEnvironment(this, null);
         environment.addComponent(new XServerComponent(xServer, UnixSocketConfig.create(rootPath, "/tmp/.X11-unix/X0")));
