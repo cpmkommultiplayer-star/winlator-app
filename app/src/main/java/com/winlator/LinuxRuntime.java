@@ -2,6 +2,7 @@ package com.winlator;
 
 import android.content.Context;
 
+import com.winlator.core.DefaultVersion;
 import com.winlator.core.FileUtils;
 import com.winlator.core.StreamUtils;
 import com.winlator.core.TarCompressorUtils;
@@ -42,6 +43,10 @@ public abstract class LinuxRuntime {
     public static final String PROOT_SHA256 = "fa10b1a7818c2f5b1dcb5834450570c368c9ecf66d31521509621b95c4538a45";
     public static final String BOX64_ASSET = "runtime/box64-aarch64";
     public static final String BOX64_SHA256 = "33d37281f1326c583af41ea39dfd62720c2756c32c58acf53c248cc9fe249b2c";
+
+    /** Mesa's virpipe winsys and gallium driver, the guest half of the VirGL renderer. */
+    public static final String VIRGL_ASSET = "graphics_driver/virgl-" + DefaultVersion.VIRGL + ".tzst";
+    public static final String VIRGL_SOCKET = "/tmp/.virgl/V0";
 
     public static final String PROTON_URL = "https://github.com/GloriousEggroll/proton-ge-custom/releases/download/GE-Proton11-12/GE-Proton11-12-aarch64.tar.gz";
     public static final long PROTON_BYTES = 650286473L;
@@ -89,6 +94,37 @@ public abstract class LinuxRuntime {
 
     public static boolean isInstalled(Context context) {
         return new File(rootfsDir(context), "bin/sh").isFile() && prootFile(context).isFile();
+    }
+
+    public static File virglMarker(Context context) {
+        return new File(dir(context), "virgl.installed");
+    }
+
+    public static boolean isVirglInstalled(Context context) {
+        return virglMarker(context).isFile();
+    }
+
+    /**
+     * Unpacks the guest-side OpenGL stack into the runtime tree. The host half is
+     * VirGLRendererComponent; without this the guest has no libGL that can reach it.
+     */
+    public static boolean installVirgl(Context context, Progress progress) {
+        if (isVirglInstalled(context)) return true;
+        File rootfs = rootfsDir(context);
+        if (!new File(rootfs, "bin/sh").isFile()) return false;
+
+        if (progress != null) progress.onStage("GRAPHICS", 0, 1);
+        boolean ok = TarCompressorUtils.extract(TarCompressorUtils.Type.ZSTD, context, VIRGL_ASSET, rootfs);
+        if (!ok) return false;
+
+        try {
+            virglMarker(context).createNewFile();
+        }
+        catch (Exception e) {
+            return false;
+        }
+        if (progress != null) progress.onStage("GRAPHICS", 1, 1);
+        return true;
     }
 
     public static boolean installProot(Context context) {
@@ -329,6 +365,11 @@ public abstract class LinuxRuntime {
         args.add("PULSE_SERVER=/tmp/.sound/PS0");
         args.add("PULSE_LATENCY_MSEC=60");
         args.add("X11_WND_GPU_INFO=1");
+        if (isVirglInstalled(context)) {
+            args.add("GALLIUM_DRIVER=virpipe");
+            args.add("VIRGL_NO_READBACK=true");
+            args.add("VIRGL_SERVER_PATH="+VIRGL_SOCKET);
+        }
         if (protonReady) {
             args.add("WINEPREFIX=/root/.wine");
             args.add("LD_LIBRARY_PATH=/opt/proton/files/lib:/opt/proton/files/lib/aarch64-linux-gnu");
