@@ -6,6 +6,7 @@ import com.winlator.core.DefaultVersion;
 import com.winlator.core.FileUtils;
 import com.winlator.core.StreamUtils;
 import com.winlator.core.TarCompressorUtils;
+import com.winlator.xenvironment.components.VirGLRendererComponent;
 
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
@@ -104,27 +105,103 @@ public abstract class LinuxRuntime {
         return virglMarker(context).isFile();
     }
 
+    private static volatile String graphicsError = null;
+
+    /** Why the graphics stack is incomplete, or null when it is complete. */
+    public static String graphicsError() {
+        return graphicsError;
+    }
+
     /**
      * Unpacks the guest-side OpenGL stack into the runtime tree. The host half is
      * VirGLRendererComponent; without this the guest has no libGL that can reach it.
+     *
+     * The asset holds exactly one file, usr/lib/libGL.so.1.7.0, so the names a loader or
+     * dlopen actually asks for are created here: libGL.so.1 and libGL.so. Wine's opengl32
+     * dlopens libGL.so.1, so leaving only the versioned file means GL never initialises.
+     *
+     * Returns false only when nothing usable was unpacked. A stack that unpacked but is not
+     * fully usable returns true and leaves the reason in {@link #graphicsError()}.
      */
     public static boolean installVirgl(Context context, Progress progress) {
         if (isVirglInstalled(context)) return true;
         File rootfs = rootfsDir(context);
-        if (!new File(rootfs, "bin/sh").isFile()) return false;
+        if (!new File(rootfs, "bin/sh").isFile()) {
+            graphicsError = "rootfs not extracted";
+            return false;
+        }
 
         if (progress != null) progress.onStage("GRAPHICS", 0, 1);
         boolean ok = TarCompressorUtils.extract(TarCompressorUtils.Type.ZSTD, context, VIRGL_ASSET, rootfs);
-        if (!ok) return false;
+        if (!ok) {
+            graphicsError = "could not unpack " + VIRGL_ASSET;
+            return false;
+        }
+
+        File libGL = new File(rootfs, "usr/lib/libGL.so.1.7.0");
+        if (!libGL.isFile()) {
+            graphicsError = "asset did not contain usr/lib/libGL.so.1.7.0";
+            return false;
+        }
+
+        StringBuilder problems = new StringBuilder();
+        for (String name : new String[]{"libGL.so.1", "libGL.so"}) {
+            String problem = linkLibGl(libGL, name);
+            if (problem != null) problems.append(problem).append("; ");
+        }
 
         try {
             virglMarker(context).createNewFile();
         }
         catch (Exception e) {
+            graphicsError = "could not write " + virglMarker(context).getName() + ": " + e;
             return false;
         }
+
+        graphicsError = problems.length() == 0 ? null : problems.substring(0, problems.length() - 2);
         if (progress != null) progress.onStage("GRAPHICS", 1, 1);
         return true;
+    }
+
+    /**
+     * Points a loader-visible name such as libGL.so.1 at the unpacked file. PRoot's
+     * --link2symlink makes the symlink usable inside the guest, and a link avoids keeping
+     * three copies of a 15 MB library. Returns null on success, otherwise the reason.
+     */
+    private static String linkLibGl(File libGL, String name) {
+        File link = new File(libGL.getParentFile(), name);
+        if (link.exists()) return null;
+
+        FileUtils.symlink(libGL.getName(), link.getPath());
+        if (link.exists()) return null;
+        if (FileUtils.copy(libGL, link)) return null;
+        return name + " missing and could not be linked or copied";
+    }
+
+    /**
+     * What the host can see about the graphics stack. This is the half a stale file cannot
+     * fake: the client count only rises when the guest's libGL really connected to the
+     * renderer, which is what happens when a program asks for a GL context.
+     */
+    public static String graphicsReport(Context context) {
+        File libs = new File(rootfsDir(context), "usr/lib");
+        StringBuilder out = new StringBuilder();
+        int clients = VirGLRendererComponent.getClientCount();
+
+        out.append("--- HOST ---\n");
+        out.append("graphics driver: ").append(!isVirglInstalled(context) ? "NOT INSTALLED"
+            : graphicsError == null ? "installed" : "incomplete: " + graphicsError).append('\n');
+        out.append("libGL.so.1.7.0: ").append(present(new File(libs, "libGL.so.1.7.0"))).append('\n');
+        out.append("libGL.so.1: ").append(present(new File(libs, "libGL.so.1"))).append('\n');
+        out.append("libGL.so: ").append(present(new File(libs, "libGL.so"))).append('\n');
+        out.append("renderer clients: ").append(clients).append(clients == 0
+            ? " (none yet, nothing in the guest has asked for a GL context)\n"
+            : " (virpipe reached the renderer)\n");
+        return out.toString();
+    }
+
+    private static String present(File file) {
+        return file.exists() ? "present" : "MISSING";
     }
 
     public static boolean installProot(Context context) {
