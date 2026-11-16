@@ -113,6 +113,49 @@ public abstract class LinuxRuntime {
     }
 
     /**
+     * Disk truth about the graphics stack, or null when it is complete. This is deliberately
+     * independent of {@link #graphicsError()}: an app restart clears the in-memory reason but
+     * not the broken files, so the screen has to be able to re-derive the problem.
+     */
+    public static String graphicsProblem(Context context) {
+        if (!isVirglInstalled(context)) return "driver not installed";
+
+        File rootfs = rootfsDir(context);
+        if (!new File(rootfs, "bin/sh").isFile()) return "rootfs missing, reinstall";
+
+        File libGL = new File(rootfs, "usr/lib/libGL.so.1.7.0");
+        if (!libGL.isFile()) return "libGL.so.1.7.0 missing, reinstall";
+
+        StringBuilder missing = new StringBuilder();
+        for (String name : new String[]{"libGL.so.1", "libGL.so"}) {
+            if (new File(libGL.getParentFile(), name).exists()) continue;
+            if (missing.length() > 0) missing.append(", ");
+            missing.append(name);
+        }
+        return missing.length() == 0 ? null : "missing " + missing;
+    }
+
+    /**
+     * Creates the loader-visible names if they are absent. Cheap and idempotent, so the screen
+     * can call it on every resume; this is what upgrades a device whose install predates the
+     * symlinks, without touching the rootfs or the downloads.
+     */
+    public static boolean repairVirgl(Context context) {
+        File libGL = new File(rootfsDir(context), "usr/lib/libGL.so.1.7.0");
+        if (!isVirglInstalled(context) || !libGL.isFile()) return false;
+
+        StringBuilder problems = new StringBuilder();
+        for (String name : new String[]{"libGL.so.1", "libGL.so"}) {
+            String problem = linkLibGl(libGL, name);
+            if (problem != null) problems.append(problem).append("; ");
+        }
+
+        graphicsError = problems.length() == 0 ? null
+            : problems.substring(0, problems.length() - 2);
+        return problems.length() == 0;
+    }
+
+    /**
      * Unpacks the guest-side OpenGL stack into the runtime tree. The host half is
      * VirGLRendererComponent; without this the guest has no libGL that can reach it.
      *
@@ -120,11 +163,29 @@ public abstract class LinuxRuntime {
      * dlopen actually asks for are created here: libGL.so.1 and libGL.so. Wine's opengl32
      * dlopens libGL.so.1, so leaving only the versioned file means GL never initialises.
      *
-     * Returns false only when nothing usable was unpacked. A stack that unpacked but is not
+     * The marker file is not proof that the stack is usable: builds before the symlinks
+     * existed wrote the same marker over a tree that has only the versioned file. So a
+     * marked install is checked and repaired here rather than trusted.
+     *
+     * Returns false only when nothing usable is on disk. A stack that unpacked but is not
      * fully usable returns true and leaves the reason in {@link #graphicsError()}.
      */
     public static boolean installVirgl(Context context, Progress progress) {
-        if (isVirglInstalled(context)) return true;
+        if (isVirglInstalled(context)) {
+            String problem = graphicsProblem(context);
+            if (problem == null) {
+                graphicsError = null;
+                return true;
+            }
+            if (repairVirgl(context)) return true;
+
+            // The driver file itself is gone, so unpacking again is the only repair left.
+            if (new File(rootfsDir(context), "usr/lib/libGL.so.1.7.0").isFile()) {
+                graphicsError = problem;
+                return false;
+            }
+        }
+
         File rootfs = rootfsDir(context);
         if (!new File(rootfs, "bin/sh").isFile()) {
             graphicsError = "rootfs not extracted";
@@ -189,8 +250,9 @@ public abstract class LinuxRuntime {
         int clients = VirGLRendererComponent.getClientCount();
 
         out.append("--- HOST ---\n");
-        out.append("graphics driver: ").append(!isVirglInstalled(context) ? "NOT INSTALLED"
-            : graphicsError == null ? "installed" : "incomplete: " + graphicsError).append('\n');
+        String problem = graphicsProblem(context);
+        out.append("graphics driver: ").append(problem == null ? "installed, libGL names present"
+            : isVirglInstalled(context) ? "incomplete: " + problem : "NOT INSTALLED").append('\n');
         out.append("libGL.so.1.7.0: ").append(present(new File(libs, "libGL.so.1.7.0"))).append('\n');
         out.append("libGL.so.1: ").append(present(new File(libs, "libGL.so.1"))).append('\n');
         out.append("libGL.so: ").append(present(new File(libs, "libGL.so"))).append('\n');
