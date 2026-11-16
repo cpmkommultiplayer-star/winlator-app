@@ -8,8 +8,8 @@ android {
         applicationId 'com.cpmkom.winlator'
         minSdkVersion 26
         targetSdkVersion 28
-        versionCode 36
-        versionName "11.5"
+        versionCode 37
+        versionName "11.6"
     }
 
     buildTypes {
