@@ -1,6 +1,7 @@
 package com.winlator;
 
 import android.app.AlertDialog;
+import android.content.Context;
 import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.os.Handler;
@@ -9,6 +10,7 @@ import android.view.KeyEvent;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.inputmethod.InputMethodManager;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 
@@ -40,6 +42,10 @@ import java.util.concurrent.Executors;
  * Their sockets are created inside the runtime's own rootfs tree, so /tmp/.X11-unix/X0 and
  * /tmp/.sound/PS0 exist at exactly the paths Proton looks for; no extra bind mounts are
  * needed and the container path is untouched.
+ *
+ * Input has two switches. KEYBOARD shows or hides the soft keyboard over the command field;
+ * INPUT turns the whole input layer (overlay plus touchpad) on or off, which is what you want
+ * once a game is running and you only want its own controls, or when the overlay is in the way.
  */
 public class LinuxRuntimeActivity extends AppCompatActivity {
     private static final String PREFS = "linux_runtime";
@@ -56,16 +62,21 @@ public class LinuxRuntimeActivity extends AppCompatActivity {
     private TextView protonButton;
     private TextView runButton;
     private TextView profileButton;
+    private TextView keyboardButton;
+    private TextView inputButton;
     private TextView commandView;
     private ViewGroup displayContainer;
     private SharedPreferences preferences;
     private boolean busy = false;
+    private boolean inputEnabled = true;
+    private boolean keyboardShown = false;
 
     private XServer xServer;
     private XServerView xServerView;
     private TouchpadView touchpadView;
     private InputControlsView inputControlsView;
     private InputControlsManager inputControlsManager;
+    private ControlsProfile currentProfile;
     private XEnvironment environment;
 
     @Override
@@ -84,6 +95,8 @@ public class LinuxRuntimeActivity extends AppCompatActivity {
         protonButton = findViewById(R.id.BTLinuxWine);
         runButton = findViewById(R.id.BTLinuxRun);
         profileButton = findViewById(R.id.BTLinuxProfile);
+        keyboardButton = findViewById(R.id.BTLinuxKeyboard);
+        inputButton = findViewById(R.id.BTLinuxInput);
         commandView = findViewById(R.id.ETLinuxCommand);
         displayContainer = findViewById(R.id.FLRuntimeDisplay);
 
@@ -93,11 +106,15 @@ public class LinuxRuntimeActivity extends AppCompatActivity {
         protonButton.setOnClickListener(v -> startProtonInstall());
         runButton.setOnClickListener(v -> runCommand());
         profileButton.setOnClickListener(v -> showProfileDialog());
+        keyboardButton.setOnClickListener(v -> setKeyboardShown(!keyboardShown));
+        inputButton.setOnClickListener(v -> setInputEnabled(!inputEnabled));
         commandView.setOnEditorActionListener((v, actionId, event) -> {
             runCommand();
             return true;
         });
 
+        setKeyboardShown(false);
+        setInputEnabled(true);
         refresh();
     }
 
@@ -118,14 +135,15 @@ public class LinuxRuntimeActivity extends AppCompatActivity {
     @Override
     public boolean dispatchKeyEvent(KeyEvent event) {
         if (commandView.hasFocus()) return super.dispatchKeyEvent(event);
-        if (inputControlsView != null && inputControlsView.onKeyEvent(event)) return true;
-        if (xServer != null && xServer.keyboard.onKeyEvent(event)) return true;
+        if (inputEnabled && inputControlsView != null && inputControlsView.onKeyEvent(event)) return true;
+        if (inputEnabled && xServer != null && xServer.keyboard.onKeyEvent(event)) return true;
         return super.dispatchKeyEvent(event);
     }
 
     @Override
     public boolean dispatchGenericMotionEvent(MotionEvent event) {
-        return !(touchpadView != null && touchpadView.onExternalMouseEvent(event)) && super.dispatchGenericMotionEvent(event);
+        return !(inputEnabled && touchpadView != null && touchpadView.onExternalMouseEvent(event))
+            && super.dispatchGenericMotionEvent(event);
     }
 
     /** Starts the app's own X server and PulseAudio against the runtime rootfs. */
@@ -162,26 +180,61 @@ public class LinuxRuntimeActivity extends AppCompatActivity {
      * profile no longer exists, leaves the overlay hidden and the plain touchpad in charge.
      */
     private void applyProfile(int id) {
-        if (inputControlsView == null || touchpadView == null) return;
+        currentProfile = id == NO_PROFILE || inputControlsManager == null ? null : inputControlsManager.getProfile(id);
+        applyInputState();
+        updateProfileButton();
+        preferences.edit().putInt(PREF_PROFILE_ID, currentProfile != null ? currentProfile.id : NO_PROFILE).apply();
+    }
 
-        ControlsProfile profile = id == NO_PROFILE || inputControlsManager == null ? null : inputControlsManager.getProfile(id);
-        boolean mouseDisabled = profile != null && profile.isDisableMouseInput();
+    /** The single place that decides whether the input layer is live and how it behaves. */
+    private void applyInputState() {
+        boolean mouseDisabled = currentProfile != null && currentProfile.isDisableMouseInput();
 
-        inputControlsView.setProfile(profile);
-        inputControlsView.setVisibility(profile != null ? View.VISIBLE : View.GONE);
+        if (inputControlsView != null) {
+            inputControlsView.setProfile(currentProfile);
+            inputControlsView.setVisibility(inputEnabled && currentProfile != null ? View.VISIBLE : View.GONE);
+        }
+        if (touchpadView != null) {
+            touchpadView.setEnabled(inputEnabled && !mouseDisabled);
+            touchpadView.setSensitivity(currentProfile != null ? currentProfile.getCursorSpeed() : 1.0f);
+        }
+        if (xServerView != null) xServerView.getRenderer().setCursorVisible(inputEnabled && !mouseDisabled);
+    }
 
-        xServerView.getRenderer().setCursorVisible(!mouseDisabled);
-        touchpadView.setEnabled(!mouseDisabled);
-        touchpadView.setSensitivity(profile != null ? profile.getCursorSpeed() : 1.0f);
+    private void setInputEnabled(boolean enabled) {
+        inputEnabled = enabled;
+        applyInputState();
+        inputButton.setText(enabled ? "INPUT ON" : "INPUT OFF");
+        inputButton.setAlpha(enabled ? 1f : 0.6f);
+    }
 
-        updateProfileButton(profile);
-        preferences.edit().putInt(PREF_PROFILE_ID, profile != null ? profile.id : NO_PROFILE).apply();
+    /**
+     * The soft keyboard types into the command field. Tapping the display moves focus away from
+     * that field, which is when key events reach the runtime instead.
+     */
+    private void setKeyboardShown(boolean show) {
+        keyboardShown = show;
+        keyboardButton.setText(show ? "KEYBOARD ON" : "KEYBOARD OFF");
+        keyboardButton.setAlpha(show ? 1f : 0.6f);
+
+        InputMethodManager imm = (InputMethodManager)getSystemService(Context.INPUT_METHOD_SERVICE);
+        if (imm == null) return;
+
+        if (show) {
+            commandView.requestFocus();
+            imm.showSoftInput(commandView, InputMethodManager.SHOW_FORCED);
+        }
+        else {
+            imm.hideSoftInputFromWindow(commandView.getWindowToken(), 0);
+            commandView.clearFocus();
+            if (xServerView != null) xServerView.requestFocus();
+        }
     }
 
     /** The button is the only place that names the current profile. */
-    private void updateProfileButton(ControlsProfile profile) {
-        profileButton.setText(profile != null ? "PROFILE "+profile.getName() : "PROFILE NONE");
-        profileButton.setAlpha(xServer == null ? 0.4f : profile != null ? 1f : 0.6f);
+    private void updateProfileButton() {
+        profileButton.setText(currentProfile != null ? "PROFILE "+currentProfile.getName() : "PROFILE NONE");
+        profileButton.setAlpha(xServer == null ? 0.4f : currentProfile != null ? 1f : 0.6f);
     }
 
     private void showProfileDialog() {
@@ -189,10 +242,8 @@ public class LinuxRuntimeActivity extends AppCompatActivity {
 
         // Profiles are edited on another screen, so re-read them before showing the list.
         inputControlsManager.loadProfiles(false);
-        if (preferences.getInt(PREF_PROFILE_ID, NO_PROFILE) != NO_PROFILE
-            && inputControlsManager.getProfile(preferences.getInt(PREF_PROFILE_ID, NO_PROFILE)) == null) {
-            applyProfile(NO_PROFILE);
-        }
+        int stored = preferences.getInt(PREF_PROFILE_ID, NO_PROFILE);
+        if (stored != NO_PROFILE && inputControlsManager.getProfile(stored) == null) applyProfile(NO_PROFILE);
 
         final ArrayList<ControlsProfile> profiles = inputControlsManager.getProfiles();
         String[] items = new String[profiles.size()+1];
@@ -232,8 +283,7 @@ public class LinuxRuntimeActivity extends AppCompatActivity {
         protonButton.setAlpha(installed && !proton ? 1f : 0.4f);
         installButton.setAlpha(busy ? 0.4f : 1f);
         runButton.setAlpha(installed ? 1f : 0.4f);
-        if (inputControlsView != null) updateProfileButton(inputControlsView.getProfile());
-        else updateProfileButton(null);
+        updateProfileButton();
     }
 
     private void setBusy(boolean value) {
@@ -336,6 +386,7 @@ public class LinuxRuntimeActivity extends AppCompatActivity {
         String command = commandView.getText().toString().trim();
         if (command.isEmpty()) return;
 
+        setKeyboardShown(false);
         setBusy(true);
         logView.setText("running: " + command);
         worker.execute(() -> {
