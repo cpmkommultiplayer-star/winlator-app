@@ -93,6 +93,10 @@ public class LinuxRuntimeActivity extends AppCompatActivity {
         protonButton.setOnClickListener(v -> startProtonInstall());
         runButton.setOnClickListener(v -> runCommand());
         profileButton.setOnClickListener(v -> showProfileDialog());
+        commandView.setOnEditorActionListener((v, actionId, event) -> {
+            runCommand();
+            return true;
+        });
 
         refresh();
     }
@@ -113,6 +117,7 @@ public class LinuxRuntimeActivity extends AppCompatActivity {
 
     @Override
     public boolean dispatchKeyEvent(KeyEvent event) {
+        if (commandView.hasFocus()) return super.dispatchKeyEvent(event);
         if (inputControlsView != null && inputControlsView.onKeyEvent(event)) return true;
         if (xServer != null && xServer.keyboard.onKeyEvent(event)) return true;
         return super.dispatchKeyEvent(event);
@@ -169,13 +174,25 @@ public class LinuxRuntimeActivity extends AppCompatActivity {
         touchpadView.setEnabled(!mouseDisabled);
         touchpadView.setSensitivity(profile != null ? profile.getCursorSpeed() : 1.0f);
 
-        profileButton.setText(profile != null ? "PROFILE "+profile.getName() : "PROFILE NONE");
-        profileButton.setAlpha(profile != null ? 1f : 0.6f);
+        updateProfileButton(profile);
         preferences.edit().putInt(PREF_PROFILE_ID, profile != null ? profile.id : NO_PROFILE).apply();
+    }
+
+    /** The button is the only place that names the current profile. */
+    private void updateProfileButton(ControlsProfile profile) {
+        profileButton.setText(profile != null ? "PROFILE "+profile.getName() : "PROFILE NONE");
+        profileButton.setAlpha(xServer == null ? 0.4f : profile != null ? 1f : 0.6f);
     }
 
     private void showProfileDialog() {
         if (inputControlsManager == null) return;
+
+        // Profiles are edited on another screen, so re-read them before showing the list.
+        inputControlsManager.loadProfiles(false);
+        if (preferences.getInt(PREF_PROFILE_ID, NO_PROFILE) != NO_PROFILE
+            && inputControlsManager.getProfile(preferences.getInt(PREF_PROFILE_ID, NO_PROFILE)) == null) {
+            applyProfile(NO_PROFILE);
+        }
 
         final ArrayList<ControlsProfile> profiles = inputControlsManager.getProfiles();
         String[] items = new String[profiles.size()+1];
@@ -215,7 +232,8 @@ public class LinuxRuntimeActivity extends AppCompatActivity {
         protonButton.setAlpha(installed && !proton ? 1f : 0.4f);
         installButton.setAlpha(busy ? 0.4f : 1f);
         runButton.setAlpha(installed ? 1f : 0.4f);
-        profileButton.setAlpha(xServer != null ? 1f : 0.4f);
+        if (inputControlsView != null) updateProfileButton(inputControlsView.getProfile());
+        else updateProfileButton(null);
     }
 
     private void setBusy(boolean value) {
