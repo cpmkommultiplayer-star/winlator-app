@@ -1,6 +1,7 @@
 package com.winlator.xenvironment.components;
 
 import android.opengl.GLES20;
+import android.os.SystemClock;
 
 import androidx.annotation.Keep;
 
@@ -15,8 +16,12 @@ import com.winlator.xserver.Drawable;
 import com.winlator.xserver.XServer;
 
 import java.io.IOException;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class VirGLRendererComponent extends EnvironmentComponent implements ConnectionHandler, RequestHandler {
+    private static final AtomicInteger clientCount = new AtomicInteger();
+    private static volatile long lastClientAt = 0;
+
     private final XServer xServer;
     private final UnixSocketConfig socketConfig;
     private XConnectorEpoll connector;
@@ -28,6 +33,20 @@ public class VirGLRendererComponent extends EnvironmentComponent implements Conn
     public VirGLRendererComponent(XServer xServer, UnixSocketConfig socketConfig) {
         this.xServer = xServer;
         this.socketConfig = socketConfig;
+    }
+
+    /**
+     * Guest GL clients that have connected since the app started. A count above zero is the
+     * only proof that the guest's libGL really loaded and reached this renderer; presence of
+     * driver files on disk proves nothing on its own.
+     */
+    public static int getClientCount() {
+        return clientCount.get();
+    }
+
+    /** ElapsedRealtime of the last client connection, or 0 when none has connected. */
+    public static long getLastClientAt() {
+        return lastClientAt;
     }
 
     @Override
@@ -60,6 +79,8 @@ public class VirGLRendererComponent extends EnvironmentComponent implements Conn
 
     @Override
     public void handleNewConnection(ConnectedClient client) {
+        clientCount.incrementAndGet();
+        lastClientAt = SystemClock.elapsedRealtime();
         long clientPtr = handleNewConnection(client.fd);
         client.setTag(clientPtr);
     }
