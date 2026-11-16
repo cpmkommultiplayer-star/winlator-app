@@ -44,8 +44,8 @@ import java.util.concurrent.Executors;
  * needed and the container path is untouched.
  *
  * Input has two switches. KEYBOARD shows or hides the soft keyboard over the command field;
- * INPUT turns the whole input layer (overlay plus touchpad) on or off, which is what you want
- * once a game is running and you only want its own controls, or when the overlay is in the way.
+ * INPUT turns the pointer layer (overlay plus touchpad) on or off, which is what you want once
+ * a game is running and only its own controls should react. Keys are not gated by INPUT.
  */
 public class LinuxRuntimeActivity extends AppCompatActivity {
     private static final String PREFS = "linux_runtime";
@@ -136,7 +136,8 @@ public class LinuxRuntimeActivity extends AppCompatActivity {
     public boolean dispatchKeyEvent(KeyEvent event) {
         if (commandView.hasFocus()) return super.dispatchKeyEvent(event);
         if (inputEnabled && inputControlsView != null && inputControlsView.onKeyEvent(event)) return true;
-        if (inputEnabled && xServer != null && xServer.keyboard.onKeyEvent(event)) return true;
+        // Keys are their own switch (KEYBOARD), so INPUT OFF only stops the pointer layer.
+        if (xServer != null && xServer.keyboard.onKeyEvent(event)) return true;
         return super.dispatchKeyEvent(event);
     }
 
@@ -186,7 +187,7 @@ public class LinuxRuntimeActivity extends AppCompatActivity {
         preferences.edit().putInt(PREF_PROFILE_ID, currentProfile != null ? currentProfile.id : NO_PROFILE).apply();
     }
 
-    /** The single place that decides whether the input layer is live and how it behaves. */
+    /** The single place that decides whether the pointer layer is live and how it behaves. */
     private void applyInputState() {
         boolean mouseDisabled = currentProfile != null && currentProfile.isDisableMouseInput();
 
