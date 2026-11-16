@@ -2,7 +2,9 @@ package com.winlator;
 
 import android.app.AlertDialog;
 import android.content.Context;
+import android.content.Intent;
 import android.content.SharedPreferences;
+import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -15,9 +17,11 @@ import android.widget.ProgressBar;
 import android.widget.TextView;
 
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.content.FileProvider;
 
 import com.winlator.container.Container;
 import com.winlator.core.AppUtils;
+import com.winlator.core.FileUtils;
 import com.winlator.inputcontrols.ControlsProfile;
 import com.winlator.inputcontrols.InputControlsManager;
 import com.winlator.widget.InputControlsView;
@@ -27,10 +31,12 @@ import com.winlator.xconnector.UnixSocketConfig;
 import com.winlator.xenvironment.RootFS;
 import com.winlator.xenvironment.XEnvironment;
 import com.winlator.xenvironment.components.PulseAudioComponent;
+import com.winlator.xenvironment.components.VirGLRendererComponent;
 import com.winlator.xenvironment.components.XServerComponent;
 import com.winlator.xserver.ScreenInfo;
 import com.winlator.xserver.XServer;
 
+import java.io.File;
 import java.util.ArrayList;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -64,6 +70,7 @@ public class LinuxRuntimeActivity extends AppCompatActivity {
     private TextView profileButton;
     private TextView keyboardButton;
     private TextView inputButton;
+    private TextView saveLogButton;
     private TextView commandView;
     private ViewGroup displayContainer;
     private SharedPreferences preferences;
@@ -97,6 +104,7 @@ public class LinuxRuntimeActivity extends AppCompatActivity {
         profileButton = findViewById(R.id.BTLinuxProfile);
         keyboardButton = findViewById(R.id.BTLinuxKeyboard);
         inputButton = findViewById(R.id.BTLinuxInput);
+        saveLogButton = findViewById(R.id.BTLinuxSaveLog);
         commandView = findViewById(R.id.ETLinuxCommand);
         displayContainer = findViewById(R.id.FLRuntimeDisplay);
 
@@ -108,6 +116,7 @@ public class LinuxRuntimeActivity extends AppCompatActivity {
         profileButton.setOnClickListener(v -> showProfileDialog());
         keyboardButton.setOnClickListener(v -> setKeyboardShown(!keyboardShown));
         inputButton.setOnClickListener(v -> setInputEnabled(!inputEnabled));
+        saveLogButton.setOnClickListener(v -> saveLog());
         commandView.setOnEditorActionListener((v, actionId, event) -> {
             runCommand();
             return true;
@@ -147,7 +156,7 @@ public class LinuxRuntimeActivity extends AppCompatActivity {
             && super.dispatchGenericMotionEvent(event);
     }
 
-    /** Starts the app's own X server and PulseAudio against the runtime rootfs. */
+    /** Starts the app's own X server, VirGL renderer and PulseAudio against the runtime rootfs. */
     private void startDisplay() {
         if (xServer != null) return;
 
@@ -173,6 +182,9 @@ public class LinuxRuntimeActivity extends AppCompatActivity {
         environment = new XEnvironment(this, RootFS.at(LinuxRuntime.rootfsDir(this)));
         environment.addComponent(new XServerComponent(xServer, UnixSocketConfig.create(rootPath, "/tmp/.X11-unix/X0")));
         environment.addComponent(new PulseAudioComponent(UnixSocketConfig.create(rootPath, "/tmp/.sound/PS0")));
+        if (LinuxRuntime.isVirglInstalled(this)) {
+            environment.addComponent(new VirGLRendererComponent(xServer, UnixSocketConfig.create(rootPath, LinuxRuntime.VIRGL_SOCKET)));
+        }
         environment.startEnvironmentComponents();
     }
 
@@ -258,6 +270,53 @@ public class LinuxRuntimeActivity extends AppCompatActivity {
             .show();
     }
 
+    private int versionCode() {
+        try {
+            return getPackageManager().getPackageInfo(getPackageName(), 0).versionCode;
+        }
+        catch (Exception e) {
+            return 0;
+        }
+    }
+
+    /**
+     * Writes the last run's output to a file and offers to share it. The file lives in the app's
+     * external files directory, so it is reachable from a file manager without any permission.
+     */
+    private void saveLog() {
+        String output = logView.getText().toString();
+        if (output.trim().isEmpty()) output = statusView.getText().toString();
+
+        StringBuilder report = new StringBuilder();
+        report.append("Winlator FSR runtime log\n");
+        report.append("versionCode ").append(versionCode()).append("\n");
+        report.append("installed=").append(LinuxRuntime.isInstalled(this));
+        report.append(" proton=").append(LinuxRuntime.isProtonInstalled(this));
+        report.append(" virgl=").append(LinuxRuntime.isVirglInstalled(this)).append("\n\n");
+        report.append(output).append("\n");
+
+        try {
+            File dir = getExternalFilesDir(null);
+            if (dir == null) throw new IllegalStateException("no external files dir");
+            if (!dir.isDirectory() && !dir.mkdirs()) throw new IllegalStateException("cannot create "+dir);
+
+            File file = new File(dir, "winlator-runtime-log.txt");
+            if (!FileUtils.writeString(file, report.toString())) throw new IllegalStateException("cannot write "+file);
+
+            Uri uri = FileProvider.getUriForFile(this, getPackageName()+".FileProvider", file);
+            Intent share = new Intent(Intent.ACTION_SEND)
+                .setType("text/plain")
+                .putExtra(Intent.EXTRA_STREAM, uri)
+                .putExtra(Intent.EXTRA_SUBJECT, "Winlator FSR runtime log")
+                .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            startActivity(Intent.createChooser(share, "Send runtime log"));
+            logView.setText(output + "\n\nsaved to " + file.getAbsolutePath());
+        }
+        catch (Exception e) {
+            logView.setText(output + "\n\nCOULD NOT SAVE: " + e);
+        }
+    }
+
     private void refresh() {
         boolean installed = LinuxRuntime.isInstalled(this);
         boolean proton = LinuxRuntime.isProtonInstalled(this);
@@ -276,7 +335,7 @@ public class LinuxRuntimeActivity extends AppCompatActivity {
         }
         else {
             text = "READY\nPRoot + Arch Linux ARM + Proton GE aarch64\n"
-                + "Display :0 and PulseAudio are live for this screen.";
+                + "Display :0, PulseAudio and VirGL are live for this screen.";
         }
 
         statusView.setText(text);
@@ -333,6 +392,12 @@ public class LinuxRuntimeActivity extends AppCompatActivity {
                 return;
             }
 
+            main.post(() -> statusView.setText("GRAPHICS"));
+            if (!LinuxRuntime.installVirgl(this, progress)) {
+                main.post(() -> { setBusy(false); statusView.setText("FAILED: graphics driver extraction"); });
+                return;
+            }
+
             main.post(() -> {
                 setBusy(false);
                 startDisplay();
@@ -371,6 +436,7 @@ public class LinuxRuntimeActivity extends AppCompatActivity {
         worker.execute(() -> {
             String output = LinuxRuntime.run(this,
                 "uname -m; id -u; echo DISPLAY=$DISPLAY; echo PULSE=$PULSE_SERVER; "
+                    + "echo VIRGL=$VIRGL_SERVER_PATH GALLIUM=$GALLIUM_DRIVER; "
                     + "if [ -x /opt/proton/files/bin-arm64/wine ]; then "
                     + "  /opt/proton/files/bin-arm64/wine --version 2>&1 | head -3; "
                     + "  ls /opt/proton/files/share/fex-emu; "
