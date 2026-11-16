@@ -1,11 +1,14 @@
 package com.winlator;
 
+import android.app.AlertDialog;
+import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.view.KeyEvent;
 import android.view.MotionEvent;
 import android.view.View;
+import android.view.ViewGroup;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 
@@ -39,6 +42,10 @@ import java.util.concurrent.Executors;
  * needed and the container path is untouched.
  */
 public class LinuxRuntimeActivity extends AppCompatActivity {
+    private static final String PREFS = "linux_runtime";
+    private static final String PREF_PROFILE_ID = "input_profile_id";
+    private static final int NO_PROFILE = 0;
+
     private final ExecutorService worker = Executors.newSingleThreadExecutor();
     private final Handler main = new Handler(Looper.getMainLooper());
     private TextView statusView;
@@ -48,8 +55,10 @@ public class LinuxRuntimeActivity extends AppCompatActivity {
     private TextView testButton;
     private TextView protonButton;
     private TextView runButton;
+    private TextView profileButton;
     private TextView commandView;
-    private View displayContainer;
+    private ViewGroup displayContainer;
+    private SharedPreferences preferences;
     private boolean busy = false;
 
     private XServer xServer;
@@ -65,6 +74,8 @@ public class LinuxRuntimeActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.linux_runtime);
 
+        preferences = getSharedPreferences(PREFS, MODE_PRIVATE);
+
         statusView = findViewById(R.id.TVLinuxStatus);
         logView = findViewById(R.id.TVLinuxLog);
         progressBar = findViewById(R.id.PBLinux);
@@ -72,6 +83,7 @@ public class LinuxRuntimeActivity extends AppCompatActivity {
         testButton = findViewById(R.id.BTLinuxTest);
         protonButton = findViewById(R.id.BTLinuxWine);
         runButton = findViewById(R.id.BTLinuxRun);
+        profileButton = findViewById(R.id.BTLinuxProfile);
         commandView = findViewById(R.id.ETLinuxCommand);
         displayContainer = findViewById(R.id.FLRuntimeDisplay);
 
@@ -80,6 +92,7 @@ public class LinuxRuntimeActivity extends AppCompatActivity {
         testButton.setOnClickListener(v -> runTest());
         protonButton.setOnClickListener(v -> startProtonInstall());
         runButton.setOnClickListener(v -> runCommand());
+        profileButton.setOnClickListener(v -> showProfileDialog());
 
         refresh();
     }
@@ -114,17 +127,13 @@ public class LinuxRuntimeActivity extends AppCompatActivity {
     private void startDisplay() {
         if (xServer != null) return;
 
-        String rootPath = LinuxRuntime.rootfsDir(this).getPath();
-        ScreenInfo screenInfo = new ScreenInfo(Container.DEFAULT_SCREEN_SIZE);
-
-        xServer = new XServer(this, screenInfo);
+        xServer = new XServer(this, new ScreenInfo(Container.DEFAULT_SCREEN_SIZE));
         xServerView = new XServerView(this, xServer);
         xServer.setRenderer(xServerView.getRenderer());
-        ((android.view.ViewGroup)displayContainer).addView(xServerView);
+        displayContainer.addView(xServerView);
 
         touchpadView = new TouchpadView(this, xServer, true);
-        touchpadView.setSensitivity(1.0f);
-        ((android.view.ViewGroup)displayContainer).addView(touchpadView);
+        displayContainer.addView(touchpadView);
 
         inputControlsManager = new InputControlsManager(this);
         inputControlsManager.loadProfiles(false);
@@ -132,25 +141,52 @@ public class LinuxRuntimeActivity extends AppCompatActivity {
         inputControlsView.setOverlayOpacity(InputControlsView.DEFAULT_OVERLAY_OPACITY);
         inputControlsView.setTouchpadView(touchpadView);
         inputControlsView.setXServer(xServer);
-        inputControlsView.setVisibility(View.GONE);
-        ((android.view.ViewGroup)displayContainer).addView(inputControlsView);
+        displayContainer.addView(inputControlsView);
 
-        ArrayList<ControlsProfile> profiles = inputControlsManager.getProfiles();
-        if (!profiles.isEmpty()) {
-            ControlsProfile profile = profiles.get(0);
-            inputControlsView.setProfile(profile);
-            inputControlsView.setVisibility(View.VISIBLE);
-            if (profile.isDisableMouseInput()) {
-                xServerView.getRenderer().setCursorVisible(false);
-                touchpadView.setEnabled(false);
-            }
-            else touchpadView.setSensitivity(profile.getCursorSpeed());
-        }
+        applyProfile(preferences.getInt(PREF_PROFILE_ID, NO_PROFILE));
 
+        String rootPath = LinuxRuntime.rootfsDir(this).getPath();
         environment = new XEnvironment(this, RootFS.at(LinuxRuntime.rootfsDir(this)));
         environment.addComponent(new XServerComponent(xServer, UnixSocketConfig.create(rootPath, "/tmp/.X11-unix/X0")));
         environment.addComponent(new PulseAudioComponent(UnixSocketConfig.create(rootPath, "/tmp/.sound/PS0")));
         environment.startEnvironmentComponents();
+    }
+
+    /**
+     * Applies an input-controls profile to the overlay. Id {@link #NO_PROFILE}, or an id whose
+     * profile no longer exists, leaves the overlay hidden and the plain touchpad in charge.
+     */
+    private void applyProfile(int id) {
+        if (inputControlsView == null || touchpadView == null) return;
+
+        ControlsProfile profile = id == NO_PROFILE || inputControlsManager == null ? null : inputControlsManager.getProfile(id);
+        boolean mouseDisabled = profile != null && profile.isDisableMouseInput();
+
+        inputControlsView.setProfile(profile);
+        inputControlsView.setVisibility(profile != null ? View.VISIBLE : View.GONE);
+
+        xServerView.getRenderer().setCursorVisible(!mouseDisabled);
+        touchpadView.setEnabled(!mouseDisabled);
+        touchpadView.setSensitivity(profile != null ? profile.getCursorSpeed() : 1.0f);
+
+        profileButton.setText(profile != null ? "PROFILE "+profile.getName() : "PROFILE NONE");
+        profileButton.setAlpha(profile != null ? 1f : 0.6f);
+        preferences.edit().putInt(PREF_PROFILE_ID, profile != null ? profile.id : NO_PROFILE).apply();
+    }
+
+    private void showProfileDialog() {
+        if (inputControlsManager == null) return;
+
+        final ArrayList<ControlsProfile> profiles = inputControlsManager.getProfiles();
+        String[] items = new String[profiles.size()+1];
+        items[0] = "None";
+        for (int i = 0; i < profiles.size(); i++) items[i+1] = profiles.get(i).getName();
+
+        new AlertDialog.Builder(this)
+            .setTitle("Input profile")
+            .setItems(items, (dialog, which) -> applyProfile(which == 0 ? NO_PROFILE : profiles.get(which - 1).id))
+            .setNegativeButton("Cancel", null)
+            .show();
     }
 
     private void refresh() {
@@ -179,20 +215,29 @@ public class LinuxRuntimeActivity extends AppCompatActivity {
         protonButton.setAlpha(installed && !proton ? 1f : 0.4f);
         installButton.setAlpha(busy ? 0.4f : 1f);
         runButton.setAlpha(installed ? 1f : 0.4f);
+        profileButton.setAlpha(xServer != null ? 1f : 0.4f);
     }
 
     private void setBusy(boolean value) {
         busy = value;
+        boolean installed = LinuxRuntime.isInstalled(this);
+
         installButton.setEnabled(!value);
-        testButton.setEnabled(!value && LinuxRuntime.isInstalled(this));
-        protonButton.setEnabled(!value && LinuxRuntime.isInstalled(this));
-        runButton.setEnabled(!value && LinuxRuntime.isInstalled(this));
+        testButton.setEnabled(!value && installed);
+        protonButton.setEnabled(!value && installed);
+        runButton.setEnabled(!value && installed);
         progressBar.setVisibility(value ? View.VISIBLE : View.GONE);
         refresh();
     }
 
-    private void setStage(String text) {
-        main.post(() -> statusView.setText(text));
+    private LinuxRuntime.Progress progressReporter() {
+        return (stage, done, total) -> {
+            int percent = total > 0 ? (int)(done * 100 / total) : 0;
+            main.post(() -> {
+                progressBar.setProgress(percent);
+                statusView.setText(stage + " " + (done / (1024 * 1024)) + " / " + (total / (1024 * 1024)) + " MB");
+            });
+        };
     }
 
     private void startInstall() {
@@ -206,21 +251,14 @@ public class LinuxRuntimeActivity extends AppCompatActivity {
                 main.post(() -> { setBusy(false); statusView.setText("FAILED: could not install proot/box64"); });
                 return;
             }
-            setStage("DOWNLOADING ROOTFS");
 
-            LinuxRuntime.Progress progress = (stage, done, total) -> {
-                int percent = total > 0 ? (int)(done * 100 / total) : 0;
-                main.post(() -> {
-                    progressBar.setProgress(percent);
-                    statusView.setText(stage + " " + (done / (1024 * 1024)) + " / " + (total / (1024 * 1024)) + " MB");
-                });
-            };
+            LinuxRuntime.Progress progress = progressReporter();
 
+            main.post(() -> statusView.setText("DOWNLOADING ROOTFS"));
             if (!LinuxRuntime.downloadRootfs(this, progress)) {
                 main.post(() -> { setBusy(false); statusView.setText("FAILED: rootfs download"); });
                 return;
             }
-            setStage("EXTRACTING");
             if (!LinuxRuntime.extractRootfs(this, progress)) {
                 main.post(() -> { setBusy(false); statusView.setText("FAILED: rootfs extraction"); });
                 return;
@@ -240,19 +278,12 @@ public class LinuxRuntimeActivity extends AppCompatActivity {
         statusView.setText("DOWNLOADING PROTON 650 MB");
 
         worker.execute(() -> {
-            LinuxRuntime.Progress progress = (stage, done, total) -> {
-                int percent = total > 0 ? (int)(done * 100 / total) : 0;
-                main.post(() -> {
-                    progressBar.setProgress(percent);
-                    statusView.setText(stage + " " + (done / (1024 * 1024)) + " / " + (total / (1024 * 1024)) + " MB");
-                });
-            };
+            LinuxRuntime.Progress progress = progressReporter();
 
             if (!LinuxRuntime.downloadProton(this, progress)) {
                 main.post(() -> { setBusy(false); statusView.setText("FAILED: proton download or checksum"); });
                 return;
             }
-            setStage("EXTRACTING PROTON");
             if (!LinuxRuntime.extractProton(this, progress)) {
                 main.post(() -> { setBusy(false); statusView.setText("FAILED: proton extraction"); });
                 return;
