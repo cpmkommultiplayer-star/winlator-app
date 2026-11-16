@@ -98,7 +98,6 @@ public class LinuxRuntimeActivity extends AppCompatActivity {
     private ViewGroup displayContainer;
     private SharedPreferences preferences;
     private boolean busy = false;
-    private boolean graphicsFailed = false;
     private boolean inputEnabled = true;
     private boolean keyboardShown = false;
 
@@ -154,6 +153,10 @@ public class LinuxRuntimeActivity extends AppCompatActivity {
     @Override
     protected void onResume() {
         super.onResume();
+        // An install written by an earlier build has the driver file but not the libGL names
+        // Wine asks for. Repairing here means a device that is already set up picks up the
+        // fix just by opening this screen, with no download and no reinstall.
+        if (LinuxRuntime.isInstalled(this)) LinuxRuntime.repairVirgl(this);
         if (LinuxRuntime.isInstalled(this)) startDisplay();
         refresh();
     }
@@ -364,12 +367,14 @@ public class LinuxRuntimeActivity extends AppCompatActivity {
         }
 
         // A broken graphics stack has to stay visible after the install finishes, not scroll
-        // past in the log, because without it every game renders in software.
-        String graphicsIssue = LinuxRuntime.graphicsError();
-        boolean graphicsBroken = graphicsFailed || graphicsIssue != null;
+        // past in the log, because without it every game renders in software. The problem is
+        // read from disk, so the banner survives an app restart, which the in-memory reason
+        // and the marker file both do not.
+        String graphicsIssue = installed ? LinuxRuntime.graphicsProblem(this) : null;
+        boolean graphicsBroken = graphicsIssue != null;
         if (graphicsBroken) {
-            text = "!! GRAPHICS " + (graphicsIssue != null ? graphicsIssue : "install failed")
-                + "\nSoftware rendering until this is fixed. Run INSTALL again.\n" + text;
+            text = "!! GRAPHICS " + graphicsIssue
+                + "\nSoftware rendering until this is fixed. Open this screen again or run INSTALL.\n" + text;
         }
 
         statusView.setText(text);
@@ -430,8 +435,8 @@ public class LinuxRuntimeActivity extends AppCompatActivity {
             main.post(() -> statusView.setText("GRAPHICS"));
             // A graphics failure must not throw away the 830 MB rootfs that just unpacked, so
             // the install continues and the reason stays on screen instead.
-            graphicsFailed = !LinuxRuntime.installVirgl(this, progress);
-            final String graphicsReason = LinuxRuntime.graphicsError();
+            boolean graphicsFailed = !LinuxRuntime.installVirgl(this, progress);
+            final String graphicsReason = LinuxRuntime.graphicsProblem(this);
             if (graphicsFailed) {
                 main.post(() -> logView.setText("GRAPHICS DRIVER FAILED: " + graphicsReason
                     + "\nThe runtime still runs, but Proton cannot render through VirGL."));
