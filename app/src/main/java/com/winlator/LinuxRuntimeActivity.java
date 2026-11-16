@@ -58,6 +58,29 @@ public class LinuxRuntimeActivity extends AppCompatActivity {
     private static final String PREF_PROFILE_ID = "input_profile_id";
     private static final int NO_PROFILE = 0;
 
+    /**
+     * The guest half of the graphics check, run inside the container. It answers three
+     * questions: does the renderer socket exist for the guest, can a client resolve libGL at
+     * all, and do that library's own dependencies resolve. glxinfo is not in a base Arch
+     * rootfs, so if it is absent the probe says so instead of pretending to have looked.
+     */
+    private static final String GRAPHICS_PROBE =
+        "echo '--- GRAPHICS ---'; "
+            + "echo \"server=$VIRGL_SERVER_PATH driver=$GALLIUM_DRIVER\"; "
+            + "ls -l /tmp/.virgl/V0 2>&1; "
+            + "ls -l /usr/lib/libGL.so* 2>&1; "
+            + "if [ -e /usr/lib/libGL.so.1 ]; then echo 'libGL.so.1: RESOLVES'; "
+            + "else echo 'libGL.so.1: MISSING, no client can load GL'; fi; "
+            + "if [ -e /usr/lib/libGL.so.1.7.0 ]; then "
+            + "  if /lib/ld-linux-aarch64.so.1 --list /usr/lib/libGL.so.1.7.0 2>&1 | grep -q 'not found'; then "
+            + "    echo 'libGL deps: BROKEN'; "
+            + "    /lib/ld-linux-aarch64.so.1 --list /usr/lib/libGL.so.1.7.0 2>&1 | grep 'not found'; "
+            + "  else echo 'libGL deps: OK'; fi; "
+            + "else echo 'libGL deps: UNKNOWN, the library itself is absent'; fi; "
+            + "if command -v glxinfo >/dev/null 2>&1; then echo 'GLX:'; "
+            + "  glxinfo -B 2>&1 | grep -Ei 'OpenGL renderer|OpenGL version|direct rendering'; "
+            + "else echo 'glxinfo: not installed, so no live renderer line yet'; fi";
+
     private final ExecutorService worker = Executors.newSingleThreadExecutor();
     private final Handler main = new Handler(Looper.getMainLooper());
     private TextView statusView;
@@ -75,6 +98,7 @@ public class LinuxRuntimeActivity extends AppCompatActivity {
     private ViewGroup displayContainer;
     private SharedPreferences preferences;
     private boolean busy = false;
+    private boolean graphicsFailed = false;
     private boolean inputEnabled = true;
     private boolean keyboardShown = false;
 
@@ -294,6 +318,7 @@ public class LinuxRuntimeActivity extends AppCompatActivity {
         report.append(" proton=").append(LinuxRuntime.isProtonInstalled(this));
         report.append(" virgl=").append(LinuxRuntime.isVirglInstalled(this)).append("\n\n");
         report.append(output).append("\n");
+        report.append(LinuxRuntime.graphicsReport(this)).append("\n");
 
         try {
             File dir = getExternalFilesDir(null);
@@ -338,7 +363,17 @@ public class LinuxRuntimeActivity extends AppCompatActivity {
                 + "Display :0, PulseAudio and VirGL are live for this screen.";
         }
 
+        // A broken graphics stack has to stay visible after the install finishes, not scroll
+        // past in the log, because without it every game renders in software.
+        String graphicsIssue = LinuxRuntime.graphicsError();
+        boolean graphicsBroken = graphicsFailed || graphicsIssue != null;
+        if (graphicsBroken) {
+            text = "!! GRAPHICS " + (graphicsIssue != null ? graphicsIssue : "install failed")
+                + "\nSoftware rendering until this is fixed. Run INSTALL again.\n" + text;
+        }
+
         statusView.setText(text);
+        statusView.setTextColor(getColor(graphicsBroken ? R.color.px_hot : R.color.px_text));
         testButton.setAlpha(installed ? 1f : 0.4f);
         protonButton.setAlpha(installed && !proton ? 1f : 0.4f);
         installButton.setAlpha(busy ? 0.4f : 1f);
@@ -393,9 +428,13 @@ public class LinuxRuntimeActivity extends AppCompatActivity {
             }
 
             main.post(() -> statusView.setText("GRAPHICS"));
-            if (!LinuxRuntime.installVirgl(this, progress)) {
-                main.post(() -> { setBusy(false); statusView.setText("FAILED: graphics driver extraction"); });
-                return;
+            // A graphics failure must not throw away the 830 MB rootfs that just unpacked, so
+            // the install continues and the reason stays on screen instead.
+            graphicsFailed = !LinuxRuntime.installVirgl(this, progress);
+            final String graphicsReason = LinuxRuntime.graphicsError();
+            if (graphicsFailed) {
+                main.post(() -> logView.setText("GRAPHICS DRIVER FAILED: " + graphicsReason
+                    + "\nThe runtime still runs, but Proton cannot render through VirGL."));
             }
 
             main.post(() -> {
@@ -436,11 +475,12 @@ public class LinuxRuntimeActivity extends AppCompatActivity {
         worker.execute(() -> {
             String output = LinuxRuntime.run(this,
                 "uname -m; id -u; echo DISPLAY=$DISPLAY; echo PULSE=$PULSE_SERVER; "
-                    + "echo VIRGL=$VIRGL_SERVER_PATH GALLIUM=$GALLIUM_DRIVER; "
+                    + GRAPHICS_PROBE + "; "
                     + "if [ -x /opt/proton/files/bin-arm64/wine ]; then "
                     + "  /opt/proton/files/bin-arm64/wine --version 2>&1 | head -3; "
                     + "  ls /opt/proton/files/share/fex-emu; "
-                    + "else echo 'proton not installed'; fi");
+                    + "else echo 'proton not installed'; fi")
+                + "\n" + LinuxRuntime.graphicsReport(this);
             main.post(() -> {
                 logView.setText(output);
                 setBusy(false);
