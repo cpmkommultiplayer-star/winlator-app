@@ -36,6 +36,10 @@
     <string name="browser_action_new_tab">New tab</string>
     <string name="browser_action_close_tab">Close this tab</string>
     <string name="browser_action_home">Go home</string>
+    <string name="browser_action_set_home">Set home page</string>
+    <string name="browser_set_home_title">Home page</string>
+    <string name="browser_set_home_save">Save</string>
+    <string name="browser_set_home_cancel">Cancel</string>
     <string name="browser_find_hint">Find in page</string>
     <string name="browser_find_none">No matches</string>
     <string name="browser_find_count">%1$d of %2$d</string>
