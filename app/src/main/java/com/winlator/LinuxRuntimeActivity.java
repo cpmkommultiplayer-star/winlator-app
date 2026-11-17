@@ -1,18 +1,23 @@
 package com.winlator;
 
+import android.Manifest;
 import android.app.AlertDialog;
 import android.content.Context;
+import android.content.pm.PackageManager;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.view.KeyEvent;
+import android.view.LayoutInflater;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.inputmethod.InputMethodManager;
+import android.widget.LinearLayout;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 
@@ -38,6 +43,8 @@ import com.winlator.xserver.XServer;
 
 import java.io.File;
 import java.util.ArrayList;
+import java.util.List;
+import java.util.Locale;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -96,6 +103,7 @@ public class LinuxRuntimeActivity extends AppCompatActivity {
     private TextView saveLogButton;
     private TextView commandView;
     private ViewGroup displayContainer;
+    private LinearLayout gamesShelf;
     private SharedPreferences preferences;
     private boolean busy = false;
     private boolean inputEnabled = true;
@@ -130,6 +138,7 @@ public class LinuxRuntimeActivity extends AppCompatActivity {
         saveLogButton = findViewById(R.id.BTLinuxSaveLog);
         commandView = findViewById(R.id.ETLinuxCommand);
         displayContainer = findViewById(R.id.FLRuntimeDisplay);
+        gamesShelf = findViewById(R.id.LLinuxGames);
 
         findViewById(R.id.BTLinuxBack).setOnClickListener(v -> finish());
         installButton.setOnClickListener(v -> startInstall());
@@ -147,7 +156,82 @@ public class LinuxRuntimeActivity extends AppCompatActivity {
 
         setKeyboardShown(false);
         setInputEnabled(true);
+        requestGameFolderAccess();
+        refreshGames();
         refresh();
+    }
+
+    /**
+     * The games folder lives on shared storage so a file manager can reach it, which means the
+     * first visit has to ask for that access once. Denying it only costs the shelf, never the
+     * runtime: the command field still works.
+     */
+    private void requestGameFolderAccess() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) return;
+        if (checkSelfPermission(Manifest.permission.WRITE_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED) return;
+        requestPermissions(new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE}, 1);
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        refreshGames();
+    }
+
+    /**
+     * Fills the shelf with every launchable file in shared Download, the same way the Deck
+     * screen fills its shelf from shortcuts. With nothing there it shows where to put files
+     * instead of an empty strip, because an empty shelf says nothing about what to do.
+     */
+    private void refreshGames() {
+        if (gamesShelf == null) return;
+        gamesShelf.removeAllViews();
+
+        List<String> games = LinuxRuntime.listGames(this);
+        LayoutInflater inflater = LayoutInflater.from(this);
+
+        if (games.isEmpty()) {
+            View tile = inflater.inflate(R.layout.runtime_game_tile, gamesShelf, false);
+            ((TextView)tile.findViewById(R.id.TVRuntimeGame)).setText("PUT .EXE FILES IN Download");
+            ((TextView)tile.findViewById(R.id.TVRuntimeGameMeta)).setText("SAME FOLDER AS THE CONTAINER D: DRIVE");
+            gamesShelf.addView(tile);
+            return;
+        }
+
+        for (String game : games) {
+            View tile = inflater.inflate(R.layout.runtime_game_tile, gamesShelf, false);
+            ((TextView)tile.findViewById(R.id.TVRuntimeGame)).setText(game.toUpperCase(Locale.US));
+            ((TextView)tile.findViewById(R.id.TVRuntimeGameMeta)).setText("PROTON");
+            tile.setOnClickListener(v -> launchGame(game));
+            gamesShelf.addView(tile);
+        }
+    }
+
+    /**
+     * Starts one game straight through Proton's Wine. No container and no box64 sit in this
+     * path, which is the whole point of the runtime: the game meets native arm64 Wine directly.
+     */
+    private void launchGame(String name) {
+        if (busy) return;
+
+        if (!LinuxRuntime.isProtonInstalled(this)) {
+            statusView.setText("ADD PROTON FIRST\nA game needs Proton's Wine. About 650 MB.");
+            return;
+        }
+
+        setKeyboardShown(false);
+        setBusy(true);
+        String command = LinuxRuntime.gameCommand(name);
+        logView.setText("running: " + command);
+
+        worker.execute(() -> {
+            String output = LinuxRuntime.run(this, command);
+            main.post(() -> {
+                logView.setText(output.isEmpty() ? "(no output)" : output);
+                setBusy(false);
+                refreshGames();
+            });
+        });
     }
 
     @Override
@@ -158,6 +242,7 @@ public class LinuxRuntimeActivity extends AppCompatActivity {
         // fix just by opening this screen, with no download and no reinstall.
         if (LinuxRuntime.isInstalled(this)) LinuxRuntime.repairVirgl(this);
         if (LinuxRuntime.isInstalled(this)) startDisplay();
+        refreshGames();
         refresh();
     }
 
