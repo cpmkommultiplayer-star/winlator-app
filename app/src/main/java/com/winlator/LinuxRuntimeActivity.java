@@ -24,7 +24,6 @@ import android.widget.TextView;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.FileProvider;
 
-import com.winlator.container.Container;
 import com.winlator.core.AppUtils;
 import com.winlator.core.FileUtils;
 import com.winlator.inputcontrols.ControlsProfile;
@@ -66,6 +65,13 @@ public class LinuxRuntimeActivity extends AppCompatActivity {
     private static final int NO_PROFILE = 0;
 
     /**
+     * Guest screen sizes, widest first. On a path where rendering is the bottleneck, pixel count
+     * is the cheapest frame rate there is: a game does not care how big the window it fills is.
+     */
+    private static final String[] RESOLUTIONS = {"1280x720", "960x540", "854x480"};
+    private static final String PREF_RESOLUTION = "screen_resolution";
+
+    /**
      * The guest half of the graphics check, run inside the container. It answers three
      * questions: does the renderer socket exist for the guest, can a client resolve libGL at
      * all, and do that library's own dependencies resolve. glxinfo is not in a base Arch
@@ -101,11 +107,13 @@ public class LinuxRuntimeActivity extends AppCompatActivity {
     private TextView keyboardButton;
     private TextView inputButton;
     private TextView saveLogButton;
+    private TextView resolutionButton;
     private TextView commandView;
     private ViewGroup displayContainer;
     private LinearLayout gamesShelf;
     private SharedPreferences preferences;
     private boolean busy = false;
+    private int resolutionIndex = 0;
     private boolean inputEnabled = true;
     private boolean keyboardShown = false;
 
@@ -136,6 +144,7 @@ public class LinuxRuntimeActivity extends AppCompatActivity {
         keyboardButton = findViewById(R.id.BTLinuxKeyboard);
         inputButton = findViewById(R.id.BTLinuxInput);
         saveLogButton = findViewById(R.id.BTLinuxSaveLog);
+        resolutionButton = findViewById(R.id.BTLinuxResolution);
         commandView = findViewById(R.id.ETLinuxCommand);
         displayContainer = findViewById(R.id.FLRuntimeDisplay);
         gamesShelf = findViewById(R.id.LLinuxGames);
@@ -149,6 +158,10 @@ public class LinuxRuntimeActivity extends AppCompatActivity {
         keyboardButton.setOnClickListener(v -> setKeyboardShown(!keyboardShown));
         inputButton.setOnClickListener(v -> setInputEnabled(!inputEnabled));
         saveLogButton.setOnClickListener(v -> saveLog());
+        resolutionIndex = preferences.getInt(PREF_RESOLUTION, 0);
+        if (resolutionIndex < 0 || resolutionIndex >= RESOLUTIONS.length) resolutionIndex = 0;
+        updateResolutionButton();
+        resolutionButton.setOnClickListener(v -> setResolution((resolutionIndex + 1) % RESOLUTIONS.length));
         commandView.setOnEditorActionListener((v, actionId, event) -> {
             runCommand();
             return true;
@@ -272,7 +285,7 @@ public class LinuxRuntimeActivity extends AppCompatActivity {
     private void startDisplay() {
         if (xServer != null) return;
 
-        xServer = new XServer(this, new ScreenInfo(Container.DEFAULT_SCREEN_SIZE));
+        xServer = new XServer(this, new ScreenInfo(RESOLUTIONS[resolutionIndex]));
         xServerView = new XServerView(this, xServer);
         xServer.setRenderer(xServerView.getRenderer());
         displayContainer.addView(xServerView);
@@ -324,6 +337,46 @@ public class LinuxRuntimeActivity extends AppCompatActivity {
             touchpadView.setSensitivity(currentProfile != null ? currentProfile.getCursorSpeed() : 1.0f);
         }
         if (xServerView != null) xServerView.getRenderer().setCursorVisible(inputEnabled && !mouseDisabled);
+    }
+
+    private void updateResolutionButton() {
+        String size = RESOLUTIONS[resolutionIndex];
+        resolutionButton.setText("RES " + size.substring(0, size.indexOf('x')));
+    }
+
+    /**
+     * Cycles the guest display size and rebuilds the display at it. The renderer is the slow part
+     * of this stack, so this is the lever that most directly raises the frame rate.
+     */
+    private void setResolution(int index) {
+        if (busy) return;
+
+        resolutionIndex = index;
+        preferences.edit().putInt(PREF_RESOLUTION, index).apply();
+        updateResolutionButton();
+        restartDisplay();
+    }
+
+    /** Tears the display down and starts it again at the current size. A running game blocks it. */
+    private void restartDisplay() {
+        if (busy || xServer == null) {
+            refresh();
+            return;
+        }
+
+        if (environment != null) environment.stopEnvironmentComponents();
+        environment = null;
+        displayContainer.removeAllViews();
+
+        xServer = null;
+        xServerView = null;
+        touchpadView = null;
+        inputControlsView = null;
+        inputControlsManager = null;
+        currentProfile = null;
+
+        startDisplay();
+        refresh();
     }
 
     private void setInputEnabled(boolean enabled) {
