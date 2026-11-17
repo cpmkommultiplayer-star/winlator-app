@@ -29,6 +29,8 @@ public final class BrowserMenu {
 
         void onHome();
 
+        void onSetHome();
+
         void onCloseTab();
     }
 
@@ -75,6 +77,7 @@ public final class BrowserMenu {
         action(R.string.browser_action_find, R.color.px_text, callback::onFind);
         action(R.string.browser_action_downloads, R.color.px_text, callback::onDownloads);
         action(R.string.browser_action_home, R.color.px_text, callback::onHome);
+        action(R.string.browser_action_set_home, R.color.px_text, callback::onSetHome);
         action(R.string.browser_action_close_tab, R.color.px_hot, callback::onCloseTab);
     }
 
