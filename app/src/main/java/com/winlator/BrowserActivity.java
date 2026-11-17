@@ -1,5 +1,6 @@
 package com.winlator;
 
+import android.app.AlertDialog;
 import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.text.format.Formatter;
@@ -290,6 +291,34 @@ public class BrowserActivity extends AppCompatActivity implements BrowserTabs.Li
     public void onHome() {
         hidePanels();
         tabs.load(preferences.getString(BrowserTabs.PREF_HOME, BrowserTabs.HOME_URL));
+    }
+
+    /**
+     * The start page is a preference, not part of the engine. DuckDuckGo ships as the default
+     * because it is a light page that loads quickly on a phone, and this dialog is the way to
+     * point it anywhere else; Gecko stays the engine either way.
+     */
+    @Override
+    public void onSetHome() {
+        hidePanels();
+
+        final EditText input = new EditText(this);
+        input.setSingleLine(true);
+        input.setText(preferences.getString(BrowserTabs.PREF_HOME, BrowserTabs.HOME_URL));
+        input.setSelection(input.getText().length());
+
+        new AlertDialog.Builder(this)
+            .setTitle(R.string.browser_set_home_title)
+            .setView(input)
+            .setPositiveButton(R.string.browser_set_home_save, (dialog, which) -> {
+                String value = input.getText().toString().trim();
+                if (value.isEmpty()) value = BrowserTabs.HOME_URL;
+                if (!value.contains("://")) value = "https://" + value;
+                preferences.edit().putString(BrowserTabs.PREF_HOME, value).apply();
+                tabs.load(value);
+            })
+            .setNegativeButton(R.string.browser_set_home_cancel, null)
+            .show();
     }
 
     @Override
