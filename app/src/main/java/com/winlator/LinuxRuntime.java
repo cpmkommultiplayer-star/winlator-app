@@ -1,6 +1,7 @@
 package com.winlator;
 
 import android.content.Context;
+import android.os.Environment;
 
 import com.winlator.core.DefaultVersion;
 import com.winlator.core.FileUtils;
@@ -21,6 +22,7 @@ import java.net.HttpURLConnection;
 import java.net.URL;
 import java.security.MessageDigest;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
 
@@ -103,6 +105,66 @@ public abstract class LinuxRuntime {
 
     public static boolean isVirglInstalled(Context context) {
         return virglMarker(context).isFile();
+    }
+
+    /** Guest path the games folder is bound to, so Proton sees it at a fixed location. */
+    public static final String GAMES_MOUNT = "/games";
+
+    /**
+     * The one folder games live in: shared Download, which is the container's D: drive
+     * (Container.DEFAULT_DRIVES maps D: to exactly this directory). A file placed there for a
+     * container is the same file this runtime offers, so nothing has to be copied twice.
+     */
+    public static File gamesDir(Context context) {
+        return Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS);
+    }
+
+    private static final int GAMES_MAX_DEPTH = 3;
+    private static final int GAMES_MAX_COUNT = 300;
+
+    /** Launchable files under the games folder, as paths relative to it, sorted. */
+    public static List<String> listGames(Context context) {
+        List<String> names = new ArrayList<>();
+        collectGames(gamesDir(context), "", 0, names);
+        Collections.sort(names, String.CASE_INSENSITIVE_ORDER);
+        return names;
+    }
+
+    /**
+     * Walks the folder instead of only its top level, because installers usually land in their
+     * own subdirectory. Depth and count are capped so a huge Download folder cannot stall the
+     * screen that draws the shelf.
+     */
+    private static void collectGames(File dir, String prefix, int depth, List<String> out) {
+        if (depth > GAMES_MAX_DEPTH || out.size() >= GAMES_MAX_COUNT) return;
+
+        File[] files = dir.listFiles();
+        if (files == null) return;
+
+        for (File file : files) {
+            if (out.size() >= GAMES_MAX_COUNT) return;
+
+            String name = file.getName();
+            if (name.startsWith(".")) continue;
+
+            String relative = prefix.isEmpty() ? name : prefix + "/" + name;
+            if (file.isDirectory()) {
+                collectGames(file, relative, depth + 1, out);
+                continue;
+            }
+
+            String lower = name.toLowerCase(Locale.US);
+            if (lower.endsWith(".exe") || lower.endsWith(".bat") || lower.endsWith(".msi")) {
+                out.add(relative);
+            }
+        }
+    }
+
+    /** The shell command that starts one game through Proton's Wine, safe for any file name. */
+    public static String gameCommand(String relativePath) {
+        String quoted = "'" + (GAMES_MOUNT + "/" + relativePath).replace("'", "'\\''") + "'";
+        if (relativePath.toLowerCase(Locale.US).endsWith(".msi")) return "wine msiexec /i " + quoted;
+        return "wine " + quoted;
     }
 
     private static volatile String graphicsError = null;
@@ -495,6 +557,14 @@ public abstract class LinuxRuntime {
             args.add(proton.getPath()+":/opt/proton");
         }
 
+        // Games live on shared storage so any file manager can drop them in; the guest only
+        // ever sees them at /games, which keeps launch commands short and predictable.
+        File games = gamesDir(context);
+        if (games.isDirectory()) {
+            args.add("-b");
+            args.add(games.getPath()+":"+GAMES_MOUNT);
+        }
+
         args.add("/usr/bin/env");
         args.add("-i");
         args.add("HOME=/root");
@@ -504,6 +574,11 @@ public abstract class LinuxRuntime {
         args.add("PULSE_SERVER=/tmp/.sound/PS0");
         args.add("PULSE_LATENCY_MSEC=60");
         args.add("X11_WND_GPU_INFO=1");
+        // VirGL gives the guest OpenGL and no Vulkan, so DXVK cannot create a device. Direct3D 9
+        // and older go through Wine's own OpenGL renderer instead, which is the path that
+        // actually renders here; this is also what DirectX 9 games such as TrackMania need.
+        args.add("PROTON_USE_WINED3D=1");
+        args.add("WINEDLLOVERRIDES=d3d9,d3d10core,d3d11,dxgi=b");
         if (isVirglInstalled(context)) {
             args.add("GALLIUM_DRIVER=virpipe");
             args.add("VIRGL_NO_READBACK=true");
